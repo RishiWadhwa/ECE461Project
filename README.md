@@ -185,8 +185,8 @@ Labels: `user-story`, `research`, `tech-debt`, `phase-1`, `phase-2`.
 
 | ID    | Type       | Story                                                                                                                                | Points | Phase | Maps to       |
 | ----- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------ | ----- | ------------- |
-| US-01 | User story | As a new user, I want a New User popup on the sign-in screen so that I can create a userid and password without leaving the page.    | 3      | 2     | SN1, SR2, SR4 |
-| US-02 | User story | As a registered user, I want to sign in with my userid and password so that I can reach my projects.                                 | 3      | 2     | SN1, SR2      |
+| US-01 | User story | As a new user, I want to be able to make a new account and check-out/check-in items.    | 3      | 2     | SN1, SR2, SR4 |
+| US-02 | User story | As a registered user, I want to sign in with my userid and password so that I can reach my items.                                 | 3      | 2     | SN1, SR2      |
 | US-03 | User story | As a user, I want my password stored hashed (never plaintext) so that my account stays secure if the database is exposed.            | 5      | 2     | SN1, SR3      |
 | US-04 | User story | As a signed-in user, I want to create a project with name, description, and projectID so that hardware usage is tracked per project. | 3      | 2     | SN1, SR4, SR5 |
 | US-05 | User story | As a signed-in user, I want to join an existing project by projectID so that I can share hardware with my team.                      | 3      | 2     | SN1, SR4      |
