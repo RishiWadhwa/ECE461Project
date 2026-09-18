@@ -30,7 +30,7 @@ This repository is the single deliverable repo for all project phases.
 
 | Name         | Role                   | GitHub                                        |
 | ------------ | ---------------------- | --------------------------------------------- |
-| Tyler Tekin | Backend (Java) | [TylerTekin](https://github.com/TylerTekin) |
+| Tyler Tekin | Backend (Java) | [TylerTekin](https://github.com/tyler-at) |
 | Joseph Gyomber | Backend (Java) | [JGyomber](https://github.com/jgyomber) |
 | May He | Backend (Node.js) | [Maaay551](https://github.com/maaay551) |
 | Nolan Arellano | Frontend (TypeScript) | [Cypher-Geist](https://github.com/cypher-geist) |
@@ -57,11 +57,9 @@ We are using **Agile Scrum**:
 | Item             | Plan                                                                                        |
 | ---------------- | ------------------------------------------------------------------------------------------- |
 | Sprint length    | 1 week                                                                                      |
-| Sprint planning  | Monday, ~30 min (Zoom)                                                                      |
+| Sprint planning  | Monday 3:00-4:00pm @ Senior Design Room                                                     |
 | Standups         | 3x / week, 10 min (Slack huddle or Zoom)                                                    |
-| Review + retro   | Friday, ~20 min                                                                             |
-| Initial velocity | Unknown; we will measure completed story points after Sprint 1 and use that as the forecast |
-| Estimation       | Fibonacci story points (1, 2, 3, 5, 8)                                                      |
+| Review + retro   | Friday in lab/recitation                                                                    |
 
 
 Phase-level targets:
@@ -81,11 +79,11 @@ Phase-level targets:
 | Tool             | Use                                                              |
 | ---------------- | ---------------------------------------------------------------- |
 | GitHub           | Source control, PRs, code review                                 |
-| GitHub Projects  | User-story board (Backlog → Ready → In Progress → Review → Done) |
+| GitHub Projects  | Task reporting (Backlog → Ready → In Progress → Review → Done)   |
 | GitHub Issues    | Bugs and improvements only (separate from the story board)       |
-| Slack            | Daily chat, standup notes, blockers                              |
+| Messages         | Daily chat, standup notes, blockers                              |
 | Zoom             | Planning, reviews, pairing                                       |
-| VS Code | Development IDE                                                    |
+| VS Code          | Development IDE                                                  |
 
 
 
