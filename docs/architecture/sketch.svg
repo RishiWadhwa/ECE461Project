@@ -1,0 +1,109 @@
+<svg viewBox="0 0 1000 980" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#333"/>
+    </marker>
+  </defs>
+
+  <style>
+    .box { stroke: #333; stroke-width: 1.5; rx: 8; }
+    .title { font-size: 15px; font-weight: bold; fill: #fff; }
+    .method { font-size: 11px; font-weight: bold; fill: #ffe9c2; }
+    .path { font-size: 11px; fill: #fff; font-family: "Courier New", monospace; }
+    .label { font-size: 12px; fill: #222; }
+    .small { font-size: 11.5px; fill: #444; }
+    .grouptitle { font-size: 14px; font-weight: bold; fill: #333; }
+    .arrow { stroke: #333; stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
+    .note { font-size: 11px; line-height: 1.35; }
+  </style>
+
+  <text x="500" y="32" text-anchor="middle" font-size="20" font-weight="bold" fill="#111">GameVault (HaaS PoC) — High-Level Architecture Sketch</text>
+
+  <!-- Client group -->
+  <rect x="30" y="60" width="300" height="440" fill="#f5f5f5" stroke="#999" stroke-dasharray="4" rx="8"/>
+  <text x="180" y="82" text-anchor="middle" class="grouptitle">React Client</text>
+
+  <rect x="50" y="100" width="260" height="170" class="box" fill="#4a7fbf"/>
+  <text x="180" y="124" text-anchor="middle" class="title">User &amp; Team Management</text>
+  <text x="180" y="148" text-anchor="middle" class="label" fill="#eee">Sign in / New user popup</text>
+  <text x="180" y="170" text-anchor="middle" class="label" fill="#eee">Create new team</text>
+  <text x="180" y="192" text-anchor="middle" class="label" fill="#eee">Join existing team</text>
+  <text x="180" y="214" text-anchor="middle" class="label" fill="#eee">List my teams</text>
+
+  <rect x="50" y="290" width="260" height="170" class="box" fill="#4a7fbf"/>
+  <text x="180" y="314" text-anchor="middle" class="title">Console &amp; Cartridge Rentals</text>
+  <text x="180" y="338" text-anchor="middle" class="label" fill="#eee">Show consoles / cartridges</text>
+  <text x="180" y="360" text-anchor="middle" class="label" fill="#eee">capacity + availability</text>
+  <text x="180" y="382" text-anchor="middle" class="label" fill="#eee">Check out units</text>
+  <text x="180" y="404" text-anchor="middle" class="label" fill="#eee">Check in units</text>
+
+  <!-- Node.js API -->
+  <rect x="400" y="60" width="290" height="270" class="box" fill="#e8a33d"/>
+  <text x="545" y="85" text-anchor="middle" class="title">Node.js API — users / teams</text>
+  <text x="420" y="112" class="method">POST</text><text x="470" y="112" class="path">/login</text>
+  <text x="420" y="132" class="method">POST</text><text x="470" y="132" class="path">/add_user</text>
+  <text x="420" y="152" class="method">GET</text><text x="470" y="152" class="path">/get_user_teams_list</text>
+  <text x="420" y="172" class="method">POST</text><text x="470" y="172" class="path">/join_team</text>
+  <text x="420" y="192" class="method">POST</text><text x="470" y="192" class="path">/create_team</text>
+  <text x="420" y="212" class="method">GET</text><text x="470" y="212" class="path">/get_team_info</text>
+  <foreignObject x="418" y="222" width="255" height="100">
+    <div xmlns="http://www.w3.org/1999/xhtml" class="note" style="color:#3a2a10; font-size:11px;">
+      All routes: JSON in/out. Passwords hashed before write; never returned in responses.
+    </div>
+  </foreignObject>
+
+  <!-- Java API -->
+  <rect x="400" y="350" width="290" height="240" class="box" fill="#e8a33d"/>
+  <text x="545" y="375" text-anchor="middle" class="title">Java API — consoles / cartridges</text>
+  <text x="420" y="402" class="method">GET</text><text x="470" y="402" class="path">/get_all_hw_names</text>
+  <text x="420" y="422" class="method">GET</text><text x="470" y="422" class="path">/get_hw_info</text>
+  <text x="420" y="442" class="method">POST</text><text x="470" y="442" class="path">/check_out</text>
+  <text x="420" y="462" class="method">POST</text><text x="470" y="462" class="path">/check_in</text>
+  <text x="420" y="482" class="method">POST</text><text x="470" y="482" class="path">/create_hardware_set</text>
+  <foreignObject x="418" y="492" width="255" height="90">
+    <div xmlns="http://www.w3.org/1999/xhtml" class="note" style="color:#3a2a10; font-size:11px;">
+      check_out / check_in validate against live availability before writing.
+    </div>
+  </foreignObject>
+
+  <!-- MongoDB -->
+  <rect x="750" y="220" width="220" height="200" class="box" fill="#5aa469"/>
+  <text x="860" y="245" text-anchor="middle" class="title">MongoDB</text>
+  <text x="860" y="270" text-anchor="middle" class="label" fill="#eef">users</text>
+  <text x="860" y="292" text-anchor="middle" class="label" fill="#eef">teams</text>
+  <text x="860" y="314" text-anchor="middle" class="label" fill="#eef">hardwareSets</text>
+  <text x="860" y="336" text-anchor="middle" class="label" fill="#eef">(consoles, cartridges)</text>
+  <foreignObject x="765" y="350" width="190" height="60">
+    <div xmlns="http://www.w3.org/1999/xhtml" class="note" style="color:#eef3ee; font-size:11px; text-align:center;">
+      One shared instance — both APIs read/write it directly.
+    </div>
+  </foreignObject>
+
+  <!-- Arrows: client to APIs -->
+  <path class="arrow" d="M310,150 L400,150"/>
+  <path class="arrow" d="M310,370 L400,440"/>
+
+  <!-- Arrows: APIs to Mongo -->
+  <path class="arrow" d="M690,160 C720,160 725,260 750,290"/>
+  <path class="arrow" d="M690,440 C720,440 725,360 750,340"/>
+
+  <!-- Encryption note between client and Node API -->
+  <rect x="340" y="95" width="55" height="34" class="box" fill="#c0503f"/>
+  <text x="367" y="110" text-anchor="middle" class="label" fill="#fff" font-size="9">HTTPS +</text>
+  <text x="367" y="122" text-anchor="middle" class="label" fill="#fff" font-size="9">hashed creds</text>
+
+  <!-- Legend / sequence -->
+  <rect x="30" y="620" width="940" height="330" fill="#fafafa" stroke="#ccc" rx="8"/>
+  <text x="50" y="650" class="grouptitle">Request flow (example: renting a console)</text>
+
+  <text x="50" y="682" class="label">1. React → Node.js POST /login → password checked against hashed value in MongoDB users.</text>
+  <text x="50" y="708" class="label">2. React → Node.js POST /create_team or POST /join_team → MongoDB teams collection updated/read.</text>
+  <text x="50" y="734" class="label">3. Rentals panel → Java GET /get_hw_info → reads console/cartridge capacity + availability from MongoDB.</text>
+  <text x="50" y="760" class="label">4. User enters a quantity → Java POST /check_out → validates against availability → writes MongoDB hardwareSets.</text>
+  <text x="50" y="786" class="label">5. Later, Java POST /check_in → returns units to the shared pool → MongoDB updated → UI re-fetches via GET /get_hw_info.</text>
+
+  <text x="50" y="824" class="grouptitle">Notes</text>
+  <text x="50" y="850" class="small">• No page shows hard-coded data — every value above comes from one of the endpoints listed, backed by MongoDB (R2-2).</text>
+  <text x="50" y="874" class="small">• Node.js and Java both read/write the same MongoDB instance; RS-03 spike covers safe concurrent updates on hardwareSets.</text>
+  <text x="50" y="898" class="small">• Phase 2 adds cloud hosting for the React client + both APIs, reachable at a single public URL (R2-3).</text>
+</svg>
