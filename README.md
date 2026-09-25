@@ -25,8 +25,8 @@ Full project plan, architecture, and backlog: see the **[Wiki](../../wiki)**.
 
 | Name | Role | GitHub |
 | --- | --- | --- |
-| Tyler Tekin | Backend (Java) | [TylerTekin](https://github.com/tyler-at) |
-| Joseph Gyomber | Backend (Java) | [JGyomber](https://github.com/jgyomber) |
+| Tyler Tekin | Backend (Java/Python) | [TylerTekin](https://github.com/tyler-at) |
+| Joseph Gyomber | Backend (Java/Python) | [JGyomber](https://github.com/jgyomber) |
 | May He | Backend (Node.js) | [Maaay551](https://github.com/maaay551) |
 | Nolan Arellano | Frontend (TypeScript) | [Cypher-Geist](https://github.com/cypher-geist) |
 | Abdon Morales | Frontend (TypeScript) | [AbdonMorales](https://github.com/abdonmorales) |
