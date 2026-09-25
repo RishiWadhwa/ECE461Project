@@ -4,6 +4,8 @@ Hardware-as-a-Service (HaaS) web application inspired by the University of Utah 
 
 This repository is the single deliverable repo for all project phases.
 
+Full project plan, architecture, and backlog: see the **[Wiki](../../wiki)**.
+
 ---
 
 ## Phase 1 Deliverables
