@@ -25,9 +25,9 @@ Full project plan, architecture, and backlog: see the **[Wiki](../../wiki)**.
 
 | Name | Role | GitHub |
 | --- | --- | --- |
-| Tyler Tekin | Backend (Java/Python) | [TylerTekin](https://github.com/tyler-at) |
-| Joseph Gyomber | Backend (Java/Python) | [JGyomber](https://github.com/jgyomber) |
-| May He | Backend (Node.js) | [Maaay551](https://github.com/maaay551) |
+| Tyler Tekin | Backend (Python Flask) | [TylerTekin](https://github.com/tyler-at) |
+| Joseph Gyomber | Backend (Python Flask) | [JGyomber](https://github.com/jgyomber) |
+| May He | Backend (Python Flask) | [Maaay551](https://github.com/maaay551) |
 | Nolan Arellano | Frontend (TypeScript) | [Cypher-Geist](https://github.com/cypher-geist) |
 | Abdon Morales | Frontend (TypeScript) | [AbdonMorales](https://github.com/abdonmorales) |
 | Rishi Wadhwa | Database / Cloud Deployment | [RishiWadhwa](https://github.com/RishiWadhwa) |
