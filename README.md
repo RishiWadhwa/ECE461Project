@@ -48,7 +48,7 @@ Roles are a starting split. Work is assigned per sprint from the board.
 | Item | Plan |
 | --- | --- |
 | Sprint length | 1 week |
-| Sprint planning | Monday 3:00–4:00pm, Senior Design Room |
+| Sprint planning | Monday 4:00–5:00pm, ECE Lounge Room |
 | Standups | 3x / week, 10 min (Slack huddle or Zoom) |
 | Review + retro | Friday in lab / recitation |
 
