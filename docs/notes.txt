@@ -1,0 +1,15 @@
+Login:
+testuser
+test1234
+
+The add and subtract logic lives in three places:
+
+- haas-app/src/components/HardwareSetCard.tsx:24 is the UI. It picks api.checkOut or api.checkIn depending on which button you click.
+- haas-app/src/api.ts:48-51 is the client. checkOut and checkIn POST { projectID, hwSet, quantity } to /check_out and /check_in.
+- haas-app/mock-api.ts:76-87 is the mock server logic that does the math. Check-out subtracts from available, with a floor of 0. 
+    Check-in adds to it, capped at capacity.
+
+The frontend does no arithmetic of its own. 
+It displays whatever the server returns. 
+When you build the real backend, the same rules will need to be implemented there. 
+The mock currently clamps silently, so it won't return an error if you check out more than is available.
