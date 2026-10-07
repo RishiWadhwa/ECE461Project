@@ -13,3 +13,4 @@ The frontend does no arithmetic of its own.
 It displays whatever the server returns. 
 When you build the real backend, the same rules will need to be implemented there. 
 The mock currently clamps silently, so it won't return an error if you check out more than is available.
+
