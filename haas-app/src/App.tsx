@@ -2,6 +2,8 @@ import { useState } from 'react'
 import SignInView from './components/SignInView.tsx'
 import ProjectsView from './components/ProjectsView.tsx'
 import ResourcesView from './components/ResourcesView.tsx'
+import ConnectionBanner from './components/ConnectionBanner.tsx'
+import { useConnectionStatus } from './connection.ts'
 
 type Section = 'projects' | 'resources'
 
@@ -14,8 +16,16 @@ export default function App() {
   const [userID, setUserID] = useState<string | null>(null)
   const [projectID, setProjectID] = useState<string | null>(null)
   const [section, setSection] = useState<Section>('projects')
+  const connection = useConnectionStatus()
 
-  if (!userID) return <SignInView onSignedIn={setUserID} />
+  if (!userID) {
+    return (
+      <>
+        <ConnectionBanner />
+        <SignInView onSignedIn={setUserID} />
+      </>
+    )
+  }
 
   const signOut = () => {
     setUserID(null)
@@ -29,12 +39,14 @@ export default function App() {
         <span className="header-logo">HAAS</span>
         <span className="header-sub">Hardware as a Service</span>
         <div className="header-spacer" />
-        <div className="header-status">
+        <div className={`header-status${connection === 'offline' ? ' offline' : ''}`} title={`Server ${connection}`}>
           <span className="status-dot" />
           {userID}
+          {connection === 'offline' && ' · offline'}
         </div>
         <button className="btn btn-ghost btn-sm" onClick={signOut}>Sign Out</button>
       </header>
+      <ConnectionBanner />
 
       <div className="section-tabs">
         {SECTIONS.map((s) => (

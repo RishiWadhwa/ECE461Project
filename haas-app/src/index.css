@@ -90,6 +90,22 @@ html, body, #root {
   animation: pulse 2s infinite;
 }
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+.header-status.offline { color: var(--red); }
+.header-status.offline .status-dot { background: var(--red); box-shadow: 0 0 8px var(--red); }
+
+/* ── Connection banner (server unreachable) ── */
+.conn-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 32px;
+  background: rgba(232, 80, 80, 0.12);
+  border-bottom: 1px solid var(--red);
+  color: var(--red);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+}
 
 /* ── Section tabs ── */
 .section-tabs {
@@ -235,6 +251,16 @@ html, body, #root {
 }
 .msg-error { color: var(--red); }
 .msg-ok { color: var(--green); }
+.msg-warn { color: var(--orange-light); }
+.member-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.member-chip {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--surface3);
+  color: var(--text-muted);
+}
 .none-label { color: var(--text-dim); font-size: 12px; font-family: 'JetBrains Mono', monospace; font-style: italic; }
 .no-path {
   color: var(--text-muted);
@@ -309,4 +335,5 @@ html, body, #root {
   .two-col { grid-template-columns: 1fr; }
   .content { padding: 20px 16px; }
   .header, .section-tabs { padding: 0 16px; }
+  .conn-banner { padding: 10px 16px; flex-wrap: wrap; }
 }

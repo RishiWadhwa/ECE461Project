@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { api } from '../api.ts'
 import type { HardwareSet } from '../api.ts'
 import HardwareSetCard from './HardwareSetCard.tsx'
+import { errorMessage } from '../errors.ts'
+import { useConnectionStatus } from '../connection.ts'
 
 interface Props {
   projectID: string | null
@@ -11,16 +13,22 @@ export default function ResourcesView({ projectID }: Props) {
   const [sets, setSets] = useState<HardwareSet[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const connection = useConnectionStatus()
 
+  // Loads on mount, and again when the server comes back so stale numbers get replaced.
   useEffect(() => {
+    if (connection === 'offline') return
     let cancelled = false
     ;(async () => {
       try {
         const { names } = await api.getHardwareNames()
         const infos = await Promise.all(names.map((n) => api.getHardwareInfo(n)))
-        if (!cancelled) setSets(infos)
+        if (!cancelled) {
+          setSets(infos)
+          setError(null)
+        }
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load hardware')
+        if (!cancelled) setError(errorMessage(err, 'Could not load hardware'))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -28,7 +36,7 @@ export default function ResourcesView({ projectID }: Props) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [connection])
 
   const replace = (updated: HardwareSet) =>
     setSets((prev) => prev.map((s) => (s.name === updated.name ? updated : s)))

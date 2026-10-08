@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { api } from '../api.ts'
 import type { HardwareSet } from '../api.ts'
+import { ApiError, ValidationError, errorMessage } from '../errors.ts'
+import { validateQuantity } from '../validation.ts'
 
 interface Props {
   hwSet: HardwareSet
@@ -11,23 +13,39 @@ interface Props {
 export default function HardwareSetCard({ hwSet, projectID, onChange }: Props) {
   const [qty, setQty] = useState('')
   const [busy, setBusy] = useState(false)
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
+  const [message, setMessage] = useState<{ kind: 'ok' | 'warn' | 'error'; text: string } | null>(null)
 
   const amount = Number(qty)
-  const valid = Number.isInteger(amount) && amount > 0
   const pct = hwSet.capacity > 0 ? (hwSet.available / hwSet.capacity) * 100 : 0
 
   const submit = async (kind: 'out' | 'in') => {
     setBusy(true)
     setMessage(null)
     try {
+      // Check-in limit is the units this project holds, which the API does not expose yet,
+      // so only the server enforces it for now.
+      validateQuantity(amount, kind === 'out' ? hwSet.available : Number.MAX_SAFE_INTEGER)
       const call = kind === 'out' ? api.checkOut : api.checkIn
       const updated = await call(projectID, hwSet.name, amount)
       onChange(updated)
       setQty('')
-      setMessage({ ok: true, text: `${kind === 'out' ? 'Checked out' : 'Checked in'} ${amount} unit${amount === 1 ? '' : 's'}` })
+      setMessage({ kind: 'ok', text: `${kind === 'out' ? 'Checked out' : 'Checked in'} ${amount} unit${amount === 1 ? '' : 's'}` })
     } catch (err) {
-      setMessage({ ok: false, text: err instanceof Error ? err.message : 'Request failed' })
+      if (err instanceof ValidationError) {
+        setMessage({ kind: 'error', text: err.messageFor('quantity') ?? err.message })
+        return
+      }
+      // Another user may have changed this set (409), or a dropped request may or may not have
+      // gone through, so the numbers on screen can be stale either way. Refetch before retrying.
+      const refreshed = await api.getHardwareInfo(hwSet.name).then(
+        (latest) => { onChange(latest); return true },
+        () => false,
+      )
+      if (err instanceof ApiError && err.isConflict()) {
+        setMessage({ kind: 'warn', text: `${err.message}. Availability refreshed; another user may have changed it.` })
+      } else {
+        setMessage({ kind: 'error', text: errorMessage(err, 'Request failed') + (refreshed ? ' Availability refreshed.' : '') })
+      }
     } finally {
       setBusy(false)
     }
@@ -65,13 +83,13 @@ export default function HardwareSetCard({ hwSet, projectID, onChange }: Props) {
       </div>
 
       <div className="btn-row">
-        <button className="btn" disabled={busy || !valid} onClick={() => submit('out')}>Check Out</button>
-        <button className="btn btn-ghost" disabled={busy || !valid} onClick={() => submit('in')}>Check In</button>
+        <button className="btn" disabled={busy || !qty.trim()} onClick={() => submit('out')}>Check Out</button>
+        <button className="btn btn-ghost" disabled={busy || !qty.trim()} onClick={() => submit('in')}>Check In</button>
       </div>
 
       {message && (
-        <div className={`msg ${message.ok ? 'msg-ok' : 'msg-error'}`} style={{ marginTop: 12 }}>
-          {message.ok ? '✓' : '✕'} {message.text}
+        <div className={`msg msg-${message.kind}`} style={{ marginTop: 12 }}>
+          {message.kind === 'ok' ? '✓' : message.kind === 'warn' ? '!' : '✕'} {message.text}
         </div>
       )}
     </div>
