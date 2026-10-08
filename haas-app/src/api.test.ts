@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { api, NetworkError } from './api.ts'
-import { ApiError } from './errors.ts'
+import { api } from './api.ts'
+import { ApiError, NetworkError } from './errors.ts'
 import { getConnectionStatus, markOnline, PROBE_INTERVAL_MS } from './connection.ts'
 
 const fetchMock = vi.fn()

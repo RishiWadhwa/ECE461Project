@@ -1,6 +1,6 @@
 // Thin REST client. Every value shown in the UI comes through these calls (R2-2).
 // Route names follow the README endpoint table; change them here if the Flask API differs.
-import { ApiError, AppError } from './errors.ts'
+import { ApiError, NetworkError } from './errors.ts'
 import { markOffline, markOnline, setProbe } from './connection.ts'
 
 export interface Project {
@@ -17,17 +17,6 @@ export interface HardwareSet {
   name: string
   capacity: number
   available: number
-}
-
-/**
- * Thrown when a request never got an answer from the server: it is down, the network dropped,
- * or it took longer than REQUEST_TIMEOUT_MS. Unlike ApiError there is no HTTP status.
- */
-export class NetworkError extends AppError {
-  constructor(message: string) {
-    super(message)
-    this.name = 'NetworkError'
-  }
 }
 
 export const REQUEST_TIMEOUT_MS = 8000

@@ -24,6 +24,21 @@ export class AppError extends Error {
 }
 
 /**
+ * Thrown when a request never got an answer from the server: it is down, the network dropped,
+ * or it took longer than REQUEST_TIMEOUT_MS. Unlike ApiError there is no HTTP status.
+ */
+export class NetworkError extends AppError {
+    /**
+     * This constructor method creates a NetworkError with the given message and sets its name to "NetworkError".
+     * @param message This parameter is the text shown to the user, e.g. that the server could not be reached or timed out.
+     */
+    constructor(message: string) {
+        super(message)
+        this.name = 'NetworkError'
+    }
+}
+
+/**
  * This class represents a validation error that extends the AppError class. 
  * It includes additional properties for the type of validation error and the specific issues that caused the error.
  */
