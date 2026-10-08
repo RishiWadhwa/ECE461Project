@@ -1,4 +1,4 @@
-Error handling (haas-app/src/errors.ts) (Last Updated: 10/07/26)
+Error handling (haas-app/src/errors.ts) (Last Updated: 10/08/26)
 
 ***errors.ts defines the app's error types, much like a small Java exception hierarchy. 
 
@@ -16,10 +16,15 @@ one input box.
 the HTTP status, with helpers isAuth() (401/403), isNotFound() (404), isConflict() (409, e.g.
 someone else took the units first, so refetch hardware info and retry) and isServer() (5xx).
 
+**NetworkError is thrown by api.ts when no answer comes back at all: the server is down, the
+network dropped, or the request took longer than REQUEST_TIMEOUT_MS (8 seconds). Unlike ApiError
+it has no HTTP status. Nolan first wrote it in api.ts; on 10/08/26 it moved into errors.ts so every
+error type lives in one file, and api.ts and api.test.ts now import it from errors.ts.
+
 The rules that decide when to throw a ValidationError live in validation.ts, not in errors.ts. In
 a component, call the validator and then the API inside one try block, and in the catch pass the
 error to errorMessage(err, "fallback text") to get the string to display. The backend repeats
-every check, so handle ApiError even when local validation passed.
+every check, so handle ApiError and NetworkError even when local validation passed.
 
 -------------------------------------------------------------------------------------------------------
 
