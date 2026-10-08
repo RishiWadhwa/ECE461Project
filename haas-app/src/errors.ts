@@ -6,7 +6,7 @@ export type Field = "userID" | "password" | "projectID" | "quantity";
 /**
  * This file contains custom error classes and a utility function for handling errors in the application.
  */
-class AppError extends Error {
+export class AppError extends Error {
 
     /**
      * This is the name of the error class, which is set to "AppError" for instances of this class.
@@ -27,7 +27,7 @@ class AppError extends Error {
  * This class represents a validation error that extends the AppError class. 
  * It includes additional properties for the type of validation error and the specific issues that caused the error.
  */
-class ValidationError extends AppError {
+export class ValidationError extends AppError {
 
     /**
      * This property holds an array of objects, each containing a field (object) and a corresponding error message.
@@ -47,10 +47,6 @@ class ValidationError extends AppError {
         } else if (issues.length === 1) {
             summaryMsg = issues[0].message;
         } else {
-            let messageIssuesCatchList = [];
-            for (const issue of issues) {
-                messageIssuesCatchList.push(issue.message);
-            }
             summaryMsg = "Error: " + issues.map(issue => issue.message).join("; ");
         }
         super(summaryMsg);
@@ -79,7 +75,7 @@ class ValidationError extends AppError {
  * This class represents an API error that extends the AppError class. 
  * It includes an additional property for the HTTP status code associated with the error.
  */
-class ApiError extends AppError {
+export class ApiError extends AppError {
     status: number;
     constructor(status: number, message: string) {
         super(message);
@@ -131,7 +127,7 @@ class ApiError extends AppError {
  * @param fallbackMessage This the message to return if the error is not of type AppError or Error.
  * @returns return the appropriate error message.
  */
-function errorMessage(error: unknown, fallbackMessage: string) : string {
+export function errorMessage(error: unknown, fallbackMessage: string) : string {
     if (error instanceof AppError) {
         return error.message;
     } else if (error instanceof Error) {
