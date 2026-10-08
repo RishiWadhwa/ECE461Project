@@ -49,3 +49,14 @@ A deviation from this stack needs TA sign-off first.
 
 <!-- Fill in once the project is scaffolded: directory layout, how to run the backend and frontend
      locally, test command, env var names, deploy target. -->
+
+## Commands
+
+Frontend (run from `haas-app/`):
+
+- `npm run dev` — dev server; uses the in-memory mock API (`mock-api.ts` + `mock-db.ts`) unless `VITE_API_URL` is set
+- `npm test` — run the vitest suites once (`src/*.test.ts`, `mock-api.test.ts`)
+- `npm run test:watch` — vitest in watch mode
+- `npx vitest run src/api.test.ts` — run a single test file
+- `npm run lint` — oxlint
+- `npm run build` — typecheck (`tsc -b`) and production build
