@@ -47,8 +47,11 @@ class ValidationError extends AppError {
         } else if (issues.length === 1) {
             summaryMsg = issues[0].message;
         } else {
-            // TODO: Improve error message by listing all issues or providing a more detailed summary.
-            summaryMsg = issues[0].message + " (and " + (issues.length - 1) + " more)";
+            let messageIssuesCatchList = [];
+            for (const issue of issues) {
+                messageIssuesCatchList.push(issue.message);
+            }
+            summaryMsg = "Error: " + issues.map(issue => issue.message).join("; ");
         }
         super(summaryMsg);
         this.name = "ValidationError";

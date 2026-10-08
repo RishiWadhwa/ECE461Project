@@ -1,0 +1,15 @@
+Error handling (haas-app/src/errors.ts)
+
+errors.ts defines the app's error types, much like a small Java exception hierarchy. AppError
+extends the built-in Error and is the base class, so a component can catch every error we expect
+with one type. ValidationError is thrown in the browser before any request is sent, when user
+input breaks a rule (empty, too short, bad characters, a quantity <= 0 or above what is available).
+It holds a list of issues, each pairing a field (userID, password, projectID, quantity) with a
+message; its summary message joins them all, and messageFor(field) returns the first message for
+one input box. ApiError is thrown by api.ts when the Flask server rejects a request, and carries
+the HTTP status, with helpers isAuth() (401/403), isNotFound() (404), isConflict() (409, e.g.
+someone else took the units first, so refetch hardware info and retry) and isServer() (5xx).
+The rules that decide when to throw a ValidationError live in validation.ts, not in errors.ts. In
+a component, call the validator and then the API inside one try block, and in the catch pass the
+error to errorMessage(err, "fallback text") to get the string to display. The backend repeats
+every check, so handle ApiError even when local validation passed.
