@@ -1,4 +1,9 @@
 /**
+ * This type defines the possible fields that can be associated with validation errors in the application.
+ */
+export type Field = "userID" | "password" | "projectID" | "quantity";
+
+/**
  * This file contains custom error classes and a utility function for handling errors in the application.
  */
 class AppError extends Error {
@@ -23,16 +28,47 @@ class AppError extends Error {
  * It includes additional properties for the type of validation error and the specific issues that caused the error.
  */
 class ValidationError extends AppError {
-    type: string;
-    issues: string[];
-    constructor(issues: string[]) {
+
+    /**
+     * This property holds an array of objects, each containing a field (object) and a corresponding error message.
+     */
+    issues: {object: Field , message: string}[];
+
+    /**
+     * The class constructor initializes a new instance of the ValidationError class with a list of validation issues.
+     * @param issues This parameter is an array of objects, where each object contains a field (object) 
+     * and a corresponding error message.
+     */
+    constructor(issues: {object: Field, message: string}[]) {
         // call parent constructor with summary message
-        // set name
-        // store the issues
+        let summaryMsg: string;
+        if (issues.length === 0) {
+            summaryMsg = "Validation error occurred. Invalid input provided.";
+        } else if (issues.length === 1) {
+            summaryMsg = issues[0].message;
+        } else {
+            // TODO: Improve error message by listing all issues or providing a more detailed summary.
+            summaryMsg = issues[0].message + " (and " + (issues.length - 1) + " more)";
+        }
+        super(summaryMsg);
+        this.name = "ValidationError";
+        this.issues = issues;
     }
 
-    messageFor(type: string): string {
-        // return msg of the first issue whose field matches, else return nothing.
+    /**
+     * This method retrieves the error message associated with 
+     * a specific field (object) from the list of validation issues.
+     * @param object The parameter is the field for which the error message is being requested.
+     * @returns This method returns the error message associated with the specified field if it exists; 
+     * otherwise, it returns undefined.
+     */
+    messageFor(object: Field): string | undefined {
+        for (const issue of this.issues) {
+            if (issue.object === object) {
+                return issue.message;
+            }
+        }
+        return undefined;
     }
 }
 
@@ -48,7 +84,42 @@ class ApiError extends AppError {
         this.status = status;
     }
 
+    /**
+     * This method checks if the error is related to authentication 
+     * or authorization issues based on the HTTP status code.
+     * @returns This method returns true if the status code is 401 (Unauthorized) or 403 (Forbidden), 
+     * indicating an authentication or authorization error; otherwise, it returns false.
+     */
+    isAuth(): boolean {
+        return this.status === 401 || this.status === 403;
+    }
     
+    /**
+     * This method checks if the error is related to a resource not being found based on the HTTP status code.
+     * @returns This method returns true if the status code is 404 (Not Found), 
+     * indicating that the requested resource was not found; otherwise, it returns false.
+     */
+    isNotFound(): boolean {
+        return this.status === 404;
+    }
+
+    /**
+     * This method checks if the server refused the request due to a conflict based on the HTTP status code.
+     * @returns This method returns true if the status code is 409 (Conflict), 
+     * indicating that the request could not be completed due to a conflict; otherwise, it returns false.
+     */
+    isConflict(): boolean {
+        return this.status === 409;
+    }
+
+    /**
+     * This method checks if the error is related to server issues based on the HTTP status code.
+     * @returns This method returns true if the status code is in the range of 500 to 599, indicating a server error; 
+     * otherwise, it returns false.
+     */
+    isServer(): boolean {
+        return this.status >= 500 && this.status < 600;
+    }
 }
 
 /**
