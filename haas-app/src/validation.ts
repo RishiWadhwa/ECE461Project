@@ -4,17 +4,17 @@ import { ValidationError, type Field } from "./errors";
 /**
  * This variable is the fewest characters a userID may have.
  */
-const MIN_USERID_LENGTH = 0;
+const MIN_USERID_LENGTH = 3;
 
 /**
  * This variable is the fewest characters a password may have.
  */
-const MIN_PASSWORD_LENGTH = 0;
+const MIN_PASSWORD_LENGTH = 8;
 
 /**
  * This variable is the fewest characters a project ID may have.
  */
-const MIN_PROJECT_ID_LENGTH = 0;
+const MIN_PROJECT_ID_LENGTH = 8;
 
 /**
  * This variable is the pattern a whole userID or project ID must match: one or more letters or digits, nothing else.

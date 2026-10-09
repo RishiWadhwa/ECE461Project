@@ -24,9 +24,25 @@ describe('validateCreds (signUp)', () => {
   })
 
   it('rejects userIDs with characters other than letters and digits', () => {
-    const err = caught(() => validateCreds('bad user!', 'pw', 'signUp'))
+    const err = caught(() => validateCreds('bad user!', 'password1', 'signUp'))
     expect(err.messageFor('userID')).toBe('This UserID contains invalid characters!')
     expect(err.messageFor('password')).toBeUndefined()
+  })
+
+  it('rejects a userID shorter than 3 characters', () => {
+    const err = caught(() => validateCreds('ab', 'password1', 'signUp'))
+    expect(err.messageFor('userID')).toBe('UserID must be at least 3 characters!')
+    expect(err.messageFor('password')).toBeUndefined()
+  })
+
+  it('rejects a password shorter than 8 characters', () => {
+    const err = caught(() => validateCreds('testuser', 'pass123', 'signUp'))
+    expect(err.messageFor('userID')).toBeUndefined()
+    expect(err.messageFor('password')).toBe('Password must be at least 8 characters!')
+  })
+
+  it('accepts a userID and password exactly at the minimum length', () => {
+    expect(() => validateCreds('abc', 'pass1234', 'signUp')).not.toThrow()
   })
 })
 
@@ -44,12 +60,17 @@ describe('validateCreds (signIn)', () => {
 
 describe('validateProjectID', () => {
   it('accepts letters and digits', () => {
-    expect(() => validateProjectID('proj01')).not.toThrow()
+    expect(() => validateProjectID('project01')).not.toThrow()
+  })
+
+  it('accepts a project ID exactly at the minimum length', () => {
+    expect(() => validateProjectID('proj0001')).not.toThrow()
   })
 
   it.each([
     ['', 'Project ID is required!'],
-    ['proj 01', 'Project ID can only contain letters and digits'],
+    ['proj001', 'Project ID must be at least 8 characters'],
+    ['project 01', 'Project ID can only contain letters and digits'],
   ])('rejects %j', (value, message) => {
     expect(caught(() => validateProjectID(value)).messageFor('projectID')).toBe(message)
   })
