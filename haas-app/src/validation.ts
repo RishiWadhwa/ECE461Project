@@ -1,4 +1,5 @@
 import { ValidationError, type Field } from "./errors.ts";
+import { Integer } from "./math.ts"
 
 // We must agree to set values with the backend team.
 /**
@@ -71,14 +72,14 @@ function checkPassword(value: string): string | null {
  * or the units this project holds for check-in.
  * @returns This method returns a message describing the first rule the quantity breaks, or null if it is valid.
  */
-function checkQuantity(value: number, max: number): string | null {
+function checkQuantity(value: Integer, max: Integer): string | null {
     if (Number.isNaN(value)) {
         return "Quantity must be a whole number!";
     } else if (!Number.isInteger(value)) {
         return "Quantity must be a whole number, not a double!";
-    } else if (value <= 0) {
+    } else if (value.intValue() <= 0) {
         return "Quantity must be greater than 0!";
-    } else if (value > max) {
+    } else if (value.compareTo(max) > 0) {
         return `Only ${max} units available`;
     }
     return null;
@@ -155,7 +156,7 @@ export function validateCreds(userID: string, password: string, mode: CredsMode)
  * @param max This parameter is the most units allowed: the set's available count for check-out,
  * or the units this project holds for check-in.
  */
-export function validateQuantity(value: number, max: number): void {
+export function validateQuantity(value: Integer, max: Integer): void {
     let quantityMsg = checkQuantity(value, max);
     if (quantityMsg !== null) {
         throw new ValidationError([{object: "quantity", message: quantityMsg}]);

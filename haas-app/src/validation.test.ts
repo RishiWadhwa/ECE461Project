@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ValidationError } from './errors.ts'
+import { Integer } from './math.ts'
 import { validateCreds, validateProjectID, validateQuantity } from './validation.ts'
 
 function caught(fn: () => void): ValidationError {
@@ -76,19 +77,25 @@ describe('validateProjectID', () => {
   })
 })
 
+// NaN and 2.5 are not tested here: Integer.of rejects them before validation runs (see math.test.ts).
 describe('validateQuantity', () => {
+  const ten = Integer.of(10)
+
   it('accepts a whole number within the limit', () => {
-    expect(() => validateQuantity(5, 10)).not.toThrow()
-    expect(() => validateQuantity(10, 10)).not.toThrow()
+    expect(() => validateQuantity(Integer.of(5), ten)).not.toThrow()
+    expect(() => validateQuantity(Integer.of(10), ten)).not.toThrow()
   })
 
   it.each([
-    [Number.NaN, 'Quantity must be a whole number!'],
-    [2.5, 'Quantity must be a whole number, not a double!'],
     [0, 'Quantity must be greater than 0!'],
     [-3, 'Quantity must be greater than 0!'],
     [11, 'Only 10 units available'],
   ])('rejects %d', (value, message) => {
-    expect(caught(() => validateQuantity(value, 10)).messageFor('quantity')).toBe(message)
+    expect(caught(() => validateQuantity(Integer.of(value), ten)).messageFor('quantity')).toBe(message)
+  })
+
+  it('reports a parsed negative as "greater than 0"', () => {
+    expect(caught(() => validateQuantity(Integer.valueOf('-3'), ten)).messageFor('quantity'))
+      .toBe('Quantity must be greater than 0!')
   })
 })

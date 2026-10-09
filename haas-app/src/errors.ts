@@ -23,6 +23,13 @@ export class AppError extends Error {
     }
 }
 
+export class NumberFormatError extends AppError {
+    constructor(message: string) {
+        super(message);
+        this.name = "NumberFormatError";
+    }
+}
+
 /**
  * Thrown when a request never got an answer from the server: it is down, the network dropped,
  * or it took longer than REQUEST_TIMEOUT_MS. Unlike ApiError there is no HTTP status.
