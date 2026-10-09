@@ -83,7 +83,7 @@ describe('validateQuantity', () => {
   })
 
   it.each([
-    [Number.NaN, 'Quantity must be a number!'],
+    [Number.NaN, 'Quantity must be a whole number!'],
     [2.5, 'Quantity must be a whole number, not a double!'],
     [0, 'Quantity must be greater than 0!'],
     [-3, 'Quantity must be greater than 0!'],

@@ -73,7 +73,7 @@ function checkPassword(value: string): string | null {
  */
 function checkQuantity(value: number, max: number): string | null {
     if (Number.isNaN(value)) {
-        return "Quantity must be a number!";
+        return "Quantity must be a whole number!";
     } else if (!Number.isInteger(value)) {
         return "Quantity must be a whole number, not a double!";
     } else if (value <= 0) {

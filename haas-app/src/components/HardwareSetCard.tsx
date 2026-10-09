@@ -3,6 +3,7 @@ import { api } from '../api.ts'
 import type { HardwareSet } from '../api.ts'
 import { ApiError, ValidationError, errorMessage } from '../errors.ts'
 import { validateQuantity } from '../validation.ts'
+import { IntMath } from '../math.ts'
 
 interface Props {
   hwSet: HardwareSet
@@ -15,7 +16,7 @@ export default function HardwareSetCard({ hwSet, projectID, onChange }: Props) {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ kind: 'ok' | 'warn' | 'error'; text: string } | null>(null)
 
-  const amount = Number(qty)
+  const amount = IntMath.parseInt(qty)
   const pct = hwSet.capacity > 0 ? (hwSet.available / hwSet.capacity) * 100 : 0
 
   const submit = async (kind: 'out' | 'in') => {
