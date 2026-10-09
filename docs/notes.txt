@@ -112,3 +112,47 @@ Decisions for you or the team: (ABDON PLEASE READ THIS!)
   - Using validateCreds on the sign-in and new-user forms.
 - Backend asks: the frontend now expects /get_project_info to return members. 
     The offline check calls /get_all_hw_names; a dedicated /health route would be better if backend adds one.
+
+------------------------------------------------------------------------------------------------------------------
+Math Class Creation and New Testing Cases for User input (10/09/26):
+
+I fixed both. All 58 tests pass and the typecheck is clean. I didn't see a final result line from lint.
+
+The Math class: I added IntMath in the new file src/math.ts. IntMath.parseInt(text) only accepts whole numbers written as plain digits, 
+with an **optional minus sign**. now only accepts plain whole numbers with no leading zeros. 
+Everything else returns NaN, and the quantity check then shows "Quantity must be a whole number!". All 60 tests pass and the typecheck is clean.
+The minus sign is allowed so that -3 still gets the "greater than 0" message instead of a generic one. 
+I named it IntMath rather than Math so it doesn't shadow JavaScript's built-in Math.
+
+ so only plain whole numbers are accepted, with no blanks, 1e0, negatives or leading zeros. That's done and all tests pass
+
+Blank input: HardwareSetCard.tsx now calls IntMath.parseInt(qty) instead of Number(qty). A blank field becomes NaN instead of 0, so validateQuantity rejects it.
+
+One message changed: in validation.ts, the error for a NaN quantity is now "Quantity must be a whole number!" instead of "Quantity must be a number!". 
+NaN now covers 2.5 and 1e0 as well, so the old wording no longer fit. I updated validation.test.ts to match.
+
+The new tests are in src/math.test.ts.
+
+There's only one place in the app where a user types a number, and it already goes through IntMath. I searched the frontend and the mock API for every way text gets turned into a number.
+
+┌───────────────────────────────────────┬──────────────────────────────────┬──────────────────────────────────────┐
+│                 Where                 │            What it is            │         Handled by math.ts?          │
+├───────────────────────────────────────┼──────────────────────────────────┼──────────────────────────────────────┤
+│                                       │ The Quantity box on each         │                                      │
+│ src/components/HardwareSetCard.tsx:19 │ hardware card, the only number   │ Yes, via IntMath.parseInt(qty)       │
+│                                       │ input on any page                │                                      │
+├───────────────────────────────────────┼──────────────────────────────────┼──────────────────────────────────────┤
+│                                       │ The mock server reading quantity │ No, it uses Number(b.quantity) and   │
+│ mock-api.ts:96                        │  from the request body           │ then checks it's a whole number      │
+│                                       │                                  │ above 0                              │
+├───────────────────────────────────────┼──────────────────────────────────┼──────────────────────────────────────┤
+│                                       │ ?seconds= on the dev-only        │                                      │
+│ mock-api.ts:146                       │ /__mock/outage route that        │ No, but it isn't user input          │
+│                                       │ simulates a server outage        │                                      │
+└───────────────────────────────────────┴──────────────────────────────────┴──────────────────────────────────────┘
+
+There's nothing for decimals. No field in the app takes a decimal, so math.ts only has IntMath. A decimal parser would be code nobody uses yet.
+
+One small gap in the mock API. The page always sends quantity as a real number, so a normal user can't hit this. But if something sends it as the text "1e0", 
+Number() turns it into 1 and the mock accepts it. I can't reuse IntMath there, because it reads typed text and the request already holds a number. 
+The fix is a one-line check that quantity is a real number and not text.
