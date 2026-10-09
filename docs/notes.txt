@@ -28,6 +28,41 @@ every check, so handle ApiError and NetworkError even when local validation pass
 
 -------------------------------------------------------------------------------------------------------
 
+Validation (haas-app/src/validation.ts) (Last Updated: 10/08/26)
+
+***validation.ts holds the input rules. errors.ts says what an error is; validation.ts decides when
+one is thrown.
+
+**Rule constants at the top: MIN_USERID_LENGTH, MIN_PASSWORD_LENGTH, MIN_PROJECT_ID_LENGTH and
+ALLOWED_CHARS (letters and digits only, used for userIDs and project IDs). The lengths are still 0
+as placeholders until we agree on real values with the backend team; both sides must use the same rules.
+
+**Private check functions (checkRequired, checkUserID, checkPassword, checkProjectID, checkQuantity)
+each return a message for the first rule broken, or null. They never throw. checkRequired is the
+shared "<label> is required!" check that the others call first, so every form uses the same wording.
+
+**Exported validators are what components call. Each throws a ValidationError if anything fails:
+- validateCreds(userID, password, mode): mode "signIn" only checks that both fields are filled in
+  (the server decides whether they are correct, and older accounts keep working if the rules get
+  stricter); "signUp" applies the full rules. Both fields are always checked, so the user sees
+  every problem at once.
+- validateProjectID(projectID): for the Create and Join project forms.
+- validateQuantity(value, max): max is the set's available count for check-out, or what the project
+  holds for check-in.
+
+**Tests: src/validation.test.ts covers sign-up and sign-in modes, project IDs and quantities
+(npm test, all 39 tests passing). Add min-length tests once the real lengths are set.
+
+Replies to Nolan's decisions list (below):
+- NetworkError: agreed, and done. It now lives in errors.ts.
+- Project-ID validator: done (validateProjectID), not yet called from ProjectsView.
+- validateCreds on the forms: the "signIn"/"signUp" modes are ready; SignInView and NewUserModal
+  don't call it yet.
+- Check-in limit: still waiting on the backend to return how many units a project holds, so
+  HardwareSetCard still passes Number.MAX_SAFE_INTEGER as the check-in max.
+
+-------------------------------------------------------------------------------------------------------
+
 Mock-API & Testing (Vitest) inlcuding other changes assigned to me (Nolan): (Last Updated: 10/08/26)
 
 All four Personal-ToDo items are done. The 34 vitest tests pass, tsc -b and lint are clean,
