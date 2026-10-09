@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ValidationError } from './errors.ts'
-import { validateCreds, validateQuantity } from './validation.ts'
+import { validateCreds, validateProjectID, validateQuantity } from './validation.ts'
 
 function caught(fn: () => void): ValidationError {
   try {
@@ -12,21 +12,46 @@ function caught(fn: () => void): ValidationError {
   throw new Error('expected a ValidationError')
 }
 
-describe('validateCreds', () => {
+describe('validateCreds (signUp)', () => {
   it('accepts a valid userID and password', () => {
-    expect(() => validateCreds('testuser', 'test1234')).not.toThrow()
+    expect(() => validateCreds('testuser', 'test1234', 'signUp')).not.toThrow()
   })
 
   it('reports every broken field at once', () => {
-    const err = caught(() => validateCreds('', ''))
-    expect(err.messageFor('userID')).toBe('UserID is required.')
-    expect(err.messageFor('password')).toBe('Password is needed!')
+    const err = caught(() => validateCreds('', '', 'signUp'))
+    expect(err.messageFor('userID')).toBe('UserID is required!')
+    expect(err.messageFor('password')).toBe('Password is required!')
   })
 
   it('rejects userIDs with characters other than letters and digits', () => {
-    const err = caught(() => validateCreds('bad user!', 'pw'))
+    const err = caught(() => validateCreds('bad user!', 'pw', 'signUp'))
     expect(err.messageFor('userID')).toBe('This UserID contains invalid characters!')
     expect(err.messageFor('password')).toBeUndefined()
+  })
+})
+
+describe('validateCreds (signIn)', () => {
+  it('only requires both fields to be filled in', () => {
+    expect(() => validateCreds('bad user!', 'pw', 'signIn')).not.toThrow()
+  })
+
+  it('reports both empty fields at once', () => {
+    const err = caught(() => validateCreds('', '', 'signIn'))
+    expect(err.messageFor('userID')).toBe('UserID is required!')
+    expect(err.messageFor('password')).toBe('Password is required!')
+  })
+})
+
+describe('validateProjectID', () => {
+  it('accepts letters and digits', () => {
+    expect(() => validateProjectID('proj01')).not.toThrow()
+  })
+
+  it.each([
+    ['', 'Project ID is required!'],
+    ['proj 01', 'Project ID can only contain letters and digits'],
+  ])('rejects %j', (value, message) => {
+    expect(caught(() => validateProjectID(value)).messageFor('projectID')).toBe(message)
   })
 })
 
