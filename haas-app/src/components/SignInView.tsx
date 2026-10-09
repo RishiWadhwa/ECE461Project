@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { api } from '../api.ts'
+import { errorMessage } from '../errors.ts'
+import { validateCreds } from '../validation.ts'
 import NewUserModal from './NewUserModal.tsx'
 
 interface Props {
@@ -19,10 +21,11 @@ export default function SignInView({ onSignedIn }: Props) {
     setBusy(true)
     setError(null)
     try {
+      validateCreds(userID.trim(), password, 'signIn')
       const res = await api.login(userID.trim(), password)
       onSignedIn(res.userID ?? userID.trim())
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sign in failed')
+      setError(errorMessage(err, 'Sign in failed'))
     } finally {
       setBusy(false)
     }

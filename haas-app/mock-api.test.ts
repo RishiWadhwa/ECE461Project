@@ -22,12 +22,24 @@ describe('mock users', () => {
   it('rejects a duplicate userID with 409', () => {
     expect(post('/add_user', { userID: 'alice', password: 'x' })?.status).toBe(409)
   })
+
+  it('rejects a new account that breaks the userID or password rules with 400', () => {
+    expect(post('/add_user', { userID: 'ab', password: 'password1' })?.status).toBe(400)
+    expect(post('/add_user', { userID: 'bad user!', password: 'password1' })?.status).toBe(400)
+    expect(post('/add_user', { userID: 'newuser', password: 'short' })?.status).toBe(400)
+    expect(post('/login', { userID: 'newuser', password: 'short' })?.status).toBe(401)
+  })
 })
 
 describe('mock projects', () => {
   it('creates a project and adds the creator as a member', () => {
-    expect(post('/create_project', { userID: 'alice', projectID: 'p9', name: 'P9', description: '' })?.status).toBe(200)
-    expect(get('/get_project_info', { projectID: 'p9' })?.body).toMatchObject({ members: ['alice'] })
+    expect(post('/create_project', { userID: 'alice', projectID: 'project9', name: 'P9', description: '' })?.status).toBe(200)
+    expect(get('/get_project_info', { projectID: 'project9' })?.body).toMatchObject({ members: ['alice'] })
+  })
+
+  it('rejects a project ID that breaks the project ID rules with 400', () => {
+    expect(post('/create_project', { userID: 'alice', projectID: 'p9', name: 'P9', description: '' })?.status).toBe(400)
+    expect(post('/create_project', { userID: 'alice', projectID: 'bad-id-123', name: 'x', description: '' })?.status).toBe(400)
   })
 
   it('rejects a taken project ID with 409', () => {

@@ -1,4 +1,4 @@
-import { ValidationError, type Field } from "./errors";
+import { ValidationError, type Field } from "./errors.ts";
 
 // We must agree to set values with the backend team.
 /**

@@ -4,6 +4,7 @@ import { api } from '../api.ts'
 import type { Project, ProjectInfo } from '../api.ts'
 import { ApiError, errorMessage } from '../errors.ts'
 import { useConnectionStatus } from '../connection.ts'
+import { validateProjectID } from '../validation.ts'
 
 interface Props {
   userID: string
@@ -74,6 +75,7 @@ export default function ProjectsView({ userID, selectedID, onSelect }: Props) {
     e.preventDefault()
     const projectID = newID.trim()
     run(async () => {
+      validateProjectID(projectID)
       const p = await api.createProject(userID, {
         projectID,
         name: newName.trim(),

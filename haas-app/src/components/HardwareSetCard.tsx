@@ -32,7 +32,7 @@ export default function HardwareSetCard({ hwSet, projectID, onChange }: Props) {
       setMessage({ kind: 'ok', text: `${kind === 'out' ? 'Checked out' : 'Checked in'} ${amount} unit${amount === 1 ? '' : 's'}` })
     } catch (err) {
       if (err instanceof ValidationError) {
-        setMessage({ kind: 'error', text: err.messageFor('quantity') ?? err.message })
+        setMessage({ kind: 'error', text: err.messageFor('quantity') ?? errorMessage(err, 'Invalid quantity') })
         return
       }
       // Another user may have changed this set (409), or a dropped request may or may not have
@@ -42,7 +42,7 @@ export default function HardwareSetCard({ hwSet, projectID, onChange }: Props) {
         () => false,
       )
       if (err instanceof ApiError && err.isConflict()) {
-        setMessage({ kind: 'warn', text: `${err.message}. Availability refreshed; another user may have changed it.` })
+        setMessage({ kind: 'warn', text: `${errorMessage(err, 'Request conflicted')}. Availability refreshed; another user may have changed it.` })
       } else {
         setMessage({ kind: 'error', text: errorMessage(err, 'Request failed') + (refreshed ? ' Availability refreshed.' : '') })
       }

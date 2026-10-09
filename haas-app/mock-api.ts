@@ -7,11 +7,23 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Plugin } from 'vite'
 import { createSeededDB, type MockDB } from './mock-db.ts'
+import { errorMessage } from './src/errors.ts'
+import { validateCreds, validateProjectID } from './src/validation.ts'
 
 export interface MockResponse { status: number; body: unknown }
 
 const ok = (body: unknown): MockResponse => ({ status: 200, body })
 const fail = (status: number, error: string): MockResponse => ({ status, body: { error } })
+
+/** Runs one of the validation.ts checks; returns a 400 response if it throws, or null if the input is valid. */
+function invalid(check: () => void): MockResponse | null {
+  try {
+    check()
+    return null
+  } catch (err) {
+    return fail(400, errorMessage(err, 'Invalid input'))
+  }
+}
 
 function addMember(db: MockDB, userID: string, projectID: string) {
   db.memberships.set(userID, (db.memberships.get(userID) ?? new Set()).add(projectID))
@@ -37,6 +49,10 @@ export function handle(
     case '/add_user':
       if (!isPost) break
       if (db.users.has(b.userID)) return fail(409, 'User already exists')
+      {
+        const bad = invalid(() => validateCreds(String(b.userID ?? ''), String(b.password ?? ''), 'signUp'))
+        if (bad) return bad
+      }
       db.users.set(b.userID, b.password)
       return ok({ userID: b.userID })
     case '/get_user_projects_list': {
@@ -52,6 +68,10 @@ export function handle(
     case '/create_project':
       if (!isPost) break
       if (db.projects.has(b.projectID)) return fail(409, `Project ID "${b.projectID}" is already taken`)
+      {
+        const bad = invalid(() => validateProjectID(String(b.projectID ?? '')))
+        if (bad) return bad
+      }
       db.projects.set(b.projectID, { projectID: b.projectID, name: b.name, description: b.description })
       addMember(db, b.userID, b.projectID)
       return ok(db.projects.get(b.projectID))

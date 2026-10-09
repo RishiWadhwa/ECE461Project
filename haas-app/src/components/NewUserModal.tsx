@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { api } from '../api.ts'
+import { errorMessage } from '../errors.ts'
+import { validateCreds } from '../validation.ts'
 
 interface Props {
   onClose: () => void
@@ -18,10 +20,11 @@ export default function NewUserModal({ onClose, onCreated }: Props) {
     setBusy(true)
     setError(null)
     try {
+      validateCreds(userID.trim(), password, 'signUp')
       await api.addUser(userID.trim(), password)
       onCreated(userID.trim())
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not create user')
+      setError(errorMessage(err, 'Could not create user'))
     } finally {
       setBusy(false)
     }
