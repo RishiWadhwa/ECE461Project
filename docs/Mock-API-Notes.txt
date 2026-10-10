@@ -1,0 +1,23 @@
+Logins (seeded in haas-app/mock-db.ts):
+testuser / test1234
+alice / alice1234
+bob / bob12345
+
+The add and subtract logic lives in three places:
+
+- haas-app/src/components/HardwareSetCard.tsx (submit) is the UI. It picks api.checkOut or api.checkIn depending on which button you click.
+- haas-app/src/api.ts (api.checkOut / api.checkIn) is the client. checkOut and checkIn POST { projectID, hwSet, quantity } to /check_out and /check_in.
+- haas-app/mock-api.ts (the /check_out and /check_in case) is the mock server logic that does the math. It tracks how many
+    units each project holds (holdings table in mock-db.ts). Check-out subtracts from available and adds to the project;
+    check-in does the reverse.
+
+The frontend does no arithmetic of its own. 
+It displays whatever the server returns. 
+When you build the real backend, the same rules will need to be implemented there. 
+The mock follows docs/api_calls.pdf: checking out more than is available, or checking in more than the project holds,
+returns 409. Joining a project you're already in returns 409; an unknown project ID returns 404.
+
+To test the offline status light, run this in the browser console while `npm run dev` is up:
+    fetch('/__mock/outage?seconds=15', { method: 'POST' })
+API requests are dropped for 15s, the header light turns red, and the app recovers on its own afterwards.
+
