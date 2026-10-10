@@ -1,0 +1,42 @@
+Changes to be made for Last Sprint of Frontend (10/10/2026):
+Read and familiarize yourself on the latest changes made especially in 'math.ts','error.ts', and 'verification.ts'
+Once done  its time to make the following changes:
+
+1. math.ts 
+    As observed math.ts has been completley rewritten to now, essentially, create an explicit Java Class to handle numbers.
+    the reason being that "Number()" in JS and TS is intentiionally left vague and accepting of ALL numerical types whihc is soemthing we do not want
+    especially for user input when checkingin/out HW sets. 
+    So we must now finish writing the float and Double classes that are in the file and left incomplete. This also insludes defining values such 
+    as '1e0' as floating points and as such NOT allowed as an input.
+
+2. Number() Replacement
+    Due to the rewritten 'math.ts' file we want to replace ANY and ALL usage of 'Number()" (The the JS/TS version) with our explicit math class while
+    still maintaining the same input rules and errors as previously established
+
+3. Check ../Components/
+    The React components will need to be double checked due to all the recent changes to ensure core functionality remains the same 
+    
+
+4. Comment out 'ListProjects' module
+    This is due to a spec clarification. At the moment for the Minimum Viable Product we ONLY want the user to login and then be greeted with the 
+    "Project' page where they can either Create a New Project OR put in a Project ID to ACCESS (We are not doing a permanent join or login association anymore 
+    AT THE MOMENT) that project's HW sets. DO NOT DELETE THE CODE. Just comment out parts that call the diaply of "already joined projects" so that the user only sees
+    the join project box and the create a project box.
+    
+5. Hashtable to process user input and then wipe after log out
+    To process user input on the forntend we are doing this via a Hashtable (used sort of like a Queue to actually process the requests to avoid race conditions
+    BUT said queue is wiped with no MEMORY of the user that accessed or asscoiated with said project once the user logs out )(Only the Database remebrs the amounts
+    of HW checked out per proejct) (So ignore the API call that Joins a Project for now)
+
+6. Resource Management Redesign
+    The core functionality of Resource MAnagment is good. However in the redesign we want to make the current "tab" into its own dedicated window
+    (Clarification: We want to redirect the user to a new page, NOT A NEW BROWSER WINDOW, and no longer a tab) The idea is that we have a dedicated login page,
+    a dedicated project access/creation page and then a HW set access page that refelcts the HW status for the whole ecosystem and the current project accessing 
+    the checkout/checkin usage.
+
+7. Optional, Create a "Currently Checked Out" Display for both HW sets to reflect how many HW sets are checked out for each project that accesses the HW Set page
+    that way the user doesn't have to memorize the amount. To do this please keep the proper formatting and sizing to ensure the look remains clean and nothing overlaps
+    in a way taht makes the design look messy (kind of how it is right now). KEEP THIS CODE COMMNETED OUT AS THE MVP DOES NOT REQUIRE THIS FEATURE YET AND WE WILL WAN TO ADD
+    IT AFTER THE MAIN CHECKPOINT AS PART OF OUR FUTURE FEATURE REDESIGN
+
+

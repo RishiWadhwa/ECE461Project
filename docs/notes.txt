@@ -174,8 +174,6 @@ What changed:
 - Tests: new cases for Double, Float and parseQuantity, plus one for the string "5" in the mock API.
 - Plan files: your decisions are recorded in tasks/plan.md, and T1–T3 are checked off. The "review with team" box in Checkpoint A is still open.
 
-Tell me once you've pushed and I'll start Phase 2 (the separate pages and the MVP Projects page).
-
 Two things to know:
 - Instead of Number(), Double and Float use parseFloat, but only after the strict format check passes. 
     It rounds decimals exactly, which hand-written parsing wouldn't. Say if you want that gone as well.
