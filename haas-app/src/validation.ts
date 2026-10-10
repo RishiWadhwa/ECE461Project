@@ -1,5 +1,5 @@
 import { ValidationError, type Field } from "./errors.ts";
-import { Integer } from "./math.ts"
+import { Double, Integer } from "./math.ts"
 
 // We must agree to set values with the backend team.
 /**
@@ -73,11 +73,8 @@ function checkPassword(value: string): string | null {
  * @returns This method returns a message describing the first rule the quantity breaks, or null if it is valid.
  */
 function checkQuantity(value: Integer, max: Integer): string | null {
-    if (Number.isNaN(value)) {
-        return "Quantity must be a whole number!";
-    } else if (!Number.isInteger(value)) {
-        return "Quantity must be a whole number, not a double!";
-    } else if (value.intValue() <= 0) {
+    // An Integer is always a whole number, so parseQuantity() has already ruled out text and decimals.
+    if (value.intValue() <= 0) {
         return "Quantity must be greater than 0!";
     } else if (value.compareTo(max) > 0) {
         return `Only ${max} units available`;
@@ -148,6 +145,31 @@ export function validateCreds(userID: string, password: string, mode: CredsMode)
     }
     
     return;
+}
+
+/**
+ * This function turns the quantity text the user typed into an Integer, and throws a ValidationError if it
+ * is not a whole number. Decimals such as "2.5" get their own message, recognized with Double.
+ * Exponent notation ("1e0"), hex and other text get the general whole-number message.
+ * @param text This parameter is the raw text from the quantity box.
+ * @returns This function returns the parsed quantity, ready for validateQuantity().
+ */
+export function parseQuantity(text: string): Integer {
+    try {
+        return Integer.valueOf(text);
+    } catch {
+        let message = "Quantity must be a whole number!";
+        try {
+            // Checking for "." keeps a too-large whole number like "99999999999999999" on the general message.
+            if (text.includes(".")) {
+                Double.valueOf(text);
+                message = "Quantity must be a whole number, not a double!";
+            }
+        } catch {
+            // Not a decimal either, so the general message stays.
+        }
+        throw new ValidationError([{object: "quantity", message}]);
+    }
 }
 
 /**

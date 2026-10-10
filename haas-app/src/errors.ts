@@ -24,8 +24,9 @@ export class AppError extends Error {
 }
 
 /**
- * This class represents an error thrown when text or a number cannot be turned into a whole number,
- * much like Java's NumberFormatException. It is thrown by Integer.of() and Integer.valueOf() in math.ts.
+ * This class represents an error thrown when text or a number cannot be turned into the number class asked for,
+ * much like Java's NumberFormatException. It is thrown by the of() and valueOf() methods of
+ * Integer, Double and Float in math.ts.
  * Its message describes the input (e.g. 'For input string: "1e3"'), not the form it came from, so
  * callers should replace it with a field-specific message before showing it to the user.
  */

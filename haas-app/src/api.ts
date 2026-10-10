@@ -2,6 +2,7 @@
 // Route names follow the README endpoint table; change them here if the Flask API differs.
 import { ApiError, NetworkError } from './errors.ts'
 import { markOffline, markOnline, setProbe } from './connection.ts'
+import type { Integer } from './math.ts'
 
 export interface Project {
   projectID: string
@@ -72,9 +73,9 @@ export const api = {
 
   getHardwareNames: () => request<{ names: string[] }>('/get_all_hw_names'),
   getHardwareInfo: (name: string) => request<HardwareSet>('/get_hw_info' + q({ name })),
-  checkOut: (projectID: string, hwSet: string, quantity: number) =>
+  checkOut: (projectID: string, hwSet: string, quantity: Integer) =>
     post<HardwareSet>('/check_out', { projectID, hwSet, quantity }),
-  checkIn: (projectID: string, hwSet: string, quantity: number) =>
+  checkIn: (projectID: string, hwSet: string, quantity: Integer) =>
     post<HardwareSet>('/check_in', { projectID, hwSet, quantity }),
 }
 

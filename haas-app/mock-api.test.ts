@@ -75,6 +75,7 @@ describe('mock hardware', () => {
   it('rejects non-positive or fractional quantities with 400', () => {
     expect(post('/check_out', { projectID: 'demo1', hwSet: 'HWSet1', quantity: 0 })?.status).toBe(400)
     expect(post('/check_out', { projectID: 'demo1', hwSet: 'HWSet1', quantity: 1.5 })?.status).toBe(400)
+    expect(post('/check_out', { projectID: 'demo1', hwSet: 'HWSet1', quantity: '5' })?.status).toBe(400)
   })
 
   it('passes non-API routes through to Vite', () => {

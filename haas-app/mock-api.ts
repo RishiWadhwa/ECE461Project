@@ -9,6 +9,7 @@ import type { Plugin } from 'vite'
 import { createSeededDB, type MockDB } from './mock-db.ts'
 import { errorMessage } from './src/errors.ts'
 import { validateCreds, validateProjectID } from './src/validation.ts'
+import { Integer } from './src/math.ts'
 
 export interface MockResponse { status: number; body: unknown }
 
@@ -93,8 +94,14 @@ export function handle(
       const hw = db.hardware.get(b.hwSet)
       if (!hw) return fail(404, 'Hardware set not found')
       if (!db.projects.has(b.projectID)) return fail(404, 'Project not found')
-      const qty = Number(b.quantity)
-      if (!Number.isInteger(qty) || qty <= 0) return fail(400, 'Invalid quantity')
+      // Integer.of also rejects a quantity sent as a string ("5"), which the real backend would not accept.
+      let qty: number
+      try {
+        qty = Integer.of(b.quantity).intValue()
+      } catch {
+        return fail(400, 'Invalid quantity')
+      }
+      if (qty <= 0) return fail(400, 'Invalid quantity')
 
       const held = db.holdings.get(b.projectID) ?? new Map<string, number>()
       const current = held.get(hw.name) ?? 0
@@ -143,7 +150,12 @@ export function mockApi(): Plugin {
         const url = new URL(req.url ?? '/', 'http://localhost')
 
         if (url.pathname === '/__mock/outage') {
-          const seconds = Number(url.searchParams.get('seconds') ?? 15)
+          let seconds: number
+          try {
+            seconds = Integer.valueOf(url.searchParams.get('seconds') ?? '15').intValue()
+          } catch {
+            return send(res, fail(400, 'seconds must be a whole number'))
+          }
           outageUntil = Date.now() + seconds * 1000
           return send(res, ok({ outageSeconds: seconds }))
         }

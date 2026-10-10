@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { Integer } from './math.ts'
+import { Double, Float, Integer } from './math.ts'
 import { NumberFormatError } from './errors.ts'
 
 describe('Integer.of', () => {
@@ -48,5 +48,47 @@ describe('Integer instance methods', () => {
   it('prints as its number in strings and JSON', () => {
     expect(`${Integer.of(42)}`).toBe('42')
     expect(JSON.stringify({ quantity: Integer.of(5) })).toBe('{"quantity":5}')
+  })
+})
+
+describe('Double.valueOf', () => {
+  it.each([
+    ['2.5', 2.5],
+    ['-3', -3],
+    ['.5', 0.5],
+    ['7.', 7],
+    [' 0.1 ', 0.1],
+  ])('parses %j', (text, expected) => {
+    expect(Double.valueOf(text).doubleValue()).toBe(expected)
+  })
+
+  it.each(['', '  ', '1e0', '2.5E3', '0x10', 'Infinity', 'NaN', '.', '1.2.3', '2.5abc'])('rejects %j', (text) => {
+    expect(() => Double.valueOf(text)).toThrow(NumberFormatError)
+  })
+
+  it('rejects non-finite numbers', () => {
+    expect(() => Double.of(Number.NaN)).toThrow(NumberFormatError)
+    expect(() => Double.of(Number.POSITIVE_INFINITY)).toThrow(NumberFormatError)
+  })
+})
+
+describe('Float', () => {
+  it('rounds to 32-bit precision', () => {
+    expect(Float.valueOf('0.1').floatValue()).toBe(Math.fround(0.1))
+    expect(Float.valueOf('0.1').floatValue()).not.toBe(0.1)
+  })
+
+  it.each(['1e0', '3.5f', '', '0x1'])('rejects %j', (text) => {
+    expect(() => Float.valueOf(text)).toThrow(NumberFormatError)
+  })
+
+  it('rejects values beyond the float range', () => {
+    expect(() => Float.of(3.5e38)).toThrow(NumberFormatError)
+    expect(() => Float.valueOf('9'.repeat(40))).toThrow(NumberFormatError)
+  })
+
+  it('prints and serializes as its number', () => {
+    expect(`${Float.of(1.5)}`).toBe('1.5')
+    expect(JSON.stringify({ x: Double.of(2.5) })).toBe('{"x":2.5}')
   })
 })

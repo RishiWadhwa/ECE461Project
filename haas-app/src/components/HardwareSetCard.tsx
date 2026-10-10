@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { api } from '../api.ts'
 import type { HardwareSet } from '../api.ts'
 import { ApiError, ValidationError, errorMessage } from '../errors.ts'
-import { validateQuantity } from '../validation.ts'
-import { IntMath } from '../math.ts'
+import { parseQuantity, validateQuantity } from '../validation.ts'
+import { Integer } from '../math.ts'
 
 interface Props {
   hwSet: HardwareSet
@@ -16,7 +16,6 @@ export default function HardwareSetCard({ hwSet, projectID, onChange }: Props) {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ kind: 'ok' | 'warn' | 'error'; text: string } | null>(null)
 
-  const amount = IntMath.parseInt(qty)
   const pct = hwSet.capacity > 0 ? (hwSet.available / hwSet.capacity) * 100 : 0
 
   const submit = async (kind: 'out' | 'in') => {
@@ -25,12 +24,13 @@ export default function HardwareSetCard({ hwSet, projectID, onChange }: Props) {
     try {
       // Check-in limit is the units this project holds, which the API does not expose yet,
       // so only the server enforces it for now.
-      validateQuantity(amount, kind === 'out' ? hwSet.available : Number.MAX_SAFE_INTEGER)
+      const amount = parseQuantity(qty)
+      validateQuantity(amount, Integer.of(kind === 'out' ? hwSet.available : Number.MAX_SAFE_INTEGER))
       const call = kind === 'out' ? api.checkOut : api.checkIn
       const updated = await call(projectID, hwSet.name, amount)
       onChange(updated)
       setQty('')
-      setMessage({ kind: 'ok', text: `${kind === 'out' ? 'Checked out' : 'Checked in'} ${amount} unit${amount === 1 ? '' : 's'}` })
+      setMessage({ kind: 'ok', text: `${kind === 'out' ? 'Checked out' : 'Checked in'} ${amount} unit${amount.intValue() === 1 ? '' : 's'}` })
     } catch (err) {
       if (err instanceof ValidationError) {
         setMessage({ kind: 'error', text: err.messageFor('quantity') ?? errorMessage(err, 'Invalid quantity') })
