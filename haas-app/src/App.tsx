@@ -4,6 +4,7 @@ import ProjectsView from './components/ProjectsView.tsx'
 import ResourcesView from './components/ResourcesView.tsx'
 import ConnectionBanner from './components/ConnectionBanner.tsx'
 import { useConnectionStatus } from './connection.ts'
+import { clear as clearSession } from './session.ts'
 
 export default function App() {
   const [userID, setUserID] = useState<string | null>(null)
@@ -23,6 +24,7 @@ export default function App() {
   const signOut = () => {
     setUserID(null)
     setProjectID(null)
+    clearSession()
   }
 
   return (

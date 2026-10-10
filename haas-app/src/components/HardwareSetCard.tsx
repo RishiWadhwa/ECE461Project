@@ -4,6 +4,7 @@ import type { HardwareSet } from '../api.ts'
 import { ApiError, ValidationError, errorMessage } from '../errors.ts'
 import { parseQuantity, validateQuantity } from '../validation.ts'
 import { Integer } from '../math.ts'
+import { enqueue } from '../session.ts'
 
 interface Props {
   hwSet: HardwareSet
@@ -23,11 +24,11 @@ export default function HardwareSetCard({ hwSet, projectID, onChange }: Props) {
     setMessage(null)
     try {
       // Check-in limit is the units this project holds, which the API does not expose yet,
-      // so only the server enforces it for now.
+      // so only the server enforces it for now. Future feature: use hwSet.checkedOut here once it exists.
       const amount = parseQuantity(qty)
       validateQuantity(amount, Integer.of(kind === 'out' ? hwSet.available : Number.MAX_SAFE_INTEGER))
       const call = kind === 'out' ? api.checkOut : api.checkIn
-      const updated = await call(projectID, hwSet.name, amount)
+      const updated = await enqueue(`${projectID}:${hwSet.name}`, () => call(projectID, hwSet.name, amount))
       onChange(updated)
       setQty('')
       setMessage({ kind: 'ok', text: `${kind === 'out' ? 'Checked out' : 'Checked in'} ${amount} unit${amount.intValue() === 1 ? '' : 's'}` })
@@ -56,6 +57,9 @@ export default function HardwareSetCard({ hwSet, projectID, onChange }: Props) {
     <div className="card hw-card">
       <div className="card-title">{hwSet.name}</div>
 
+      {/* Future feature (after the checkpoint): swap the next line for
+          <div className="hw-stats hw-stats-3">
+          so three stats fit without overlapping (see .hw-stats-3 in index.css). */}
       <div className="hw-stats">
         <div>
           <div className="social-section-label">Capacity</div>
@@ -65,6 +69,13 @@ export default function HardwareSetCard({ hwSet, projectID, onChange }: Props) {
           <div className="social-section-label">Available</div>
           <div className="hw-number hw-available">{hwSet.available}</div>
         </div>
+        {/* Future feature (after the checkpoint): units this project holds, from a backend endpoint
+            that does not exist yet (e.g. a checkedOut field on get_hw_info for the current project).
+        <div>
+          <div className="social-section-label">Checked Out</div>
+          <div className="hw-number">{hwSet.checkedOut}</div>
+        </div>
+        */}
       </div>
 
       <div className="meter-track">

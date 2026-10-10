@@ -302,6 +302,10 @@ html, body, #root {
 .pair-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
 .hw-grid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
 .hw-stats { display: flex; gap: 32px; margin-bottom: 12px; }
+/* Future feature (after the checkpoint): three-stat row for "Checked Out". A smaller gap keeps three
+   numbers inside a 320px card, and wrapping drops the third stat to a new line on narrow screens.
+.hw-stats-3 { gap: 20px; flex-wrap: wrap; row-gap: 10px; }
+*/
 .hw-number { font-family: 'Bebas Neue', sans-serif; font-size: 40px; letter-spacing: 2px; line-height: 1; }
 .hw-available { color: var(--green); }
 .social-section-label {

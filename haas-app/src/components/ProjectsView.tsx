@@ -97,13 +97,14 @@ export default function ProjectsView({ userID, onOpen }: Props) {
     }, setCreateError, 'Could not create project')
   }
 
-  // Access replaces Join for the MVP: it only checks the project exists (a 404 shows its message),
+  // Access replaces Join for the MVP: it checks the ID rules, then that the project exists (a 404 shows its message),
   // then opens its Hardware page without adding the user as a member.
   const access = (e: FormEvent) => {
     e.preventDefault()
     const projectID = accessID.trim()
     run(async () => {
-      // No validateProjectID here: existing IDs (e.g. seeded "demo1") may predate the create rules.
+      // Too-short or malformed IDs fail here without a request; well-formed unknown IDs get the API's 404.
+      validateProjectID(projectID)
       const p = await api.getProjectInfo(projectID)
       setAccessID('')
       onOpen(p.projectID ?? projectID)
