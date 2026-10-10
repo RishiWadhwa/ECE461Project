@@ -6,10 +6,11 @@ import { errorMessage } from '../errors.ts'
 import { useConnectionStatus } from '../connection.ts'
 
 interface Props {
-  projectID: string | null
+  projectID: string
+  onBack: () => void
 }
 
-export default function ResourcesView({ projectID }: Props) {
+export default function ResourcesView({ projectID, onBack }: Props) {
   const [sets, setSets] = useState<HardwareSet[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -43,36 +44,19 @@ export default function ResourcesView({ projectID }: Props) {
 
   return (
     <div>
+      <button className="btn btn-ghost btn-sm" style={{ marginBottom: 16 }} onClick={onBack}>← Projects</button>
       <div className="section-header">
         <div className="section-title">RESOURCES</div>
-        <div className="section-desc">
-          {projectID ? `Working under project · ${projectID}` : 'Select a project to check hardware in or out'}
-        </div>
+        <div className="section-desc">Working under project · {projectID}</div>
       </div>
 
       {error && <div className="msg msg-error">✕ {error}</div>}
       {loading && <div className="none-label">Loading hardware…</div>}
 
-      {!projectID && !loading && (
-        <div className="no-path" style={{ marginBottom: 16 }}>
-          <span style={{ fontSize: 18 }}>◈</span>
-          Pick a project on the Projects tab before checking out hardware.
-        </div>
-      )}
-
       <div className="pair-grid hw-grid">
-        {sets.map((s) =>
-          projectID ? (
-            <HardwareSetCard key={s.name} hwSet={s} projectID={projectID} onChange={replace} />
-          ) : (
-            <div key={s.name} className="card">
-              <div className="card-title">{s.name}</div>
-              <div className="pair-meta">
-                {s.available} / {s.capacity} available
-              </div>
-            </div>
-          ),
-        )}
+        {sets.map((s) => (
+          <HardwareSetCard key={s.name} hwSet={s} projectID={projectID} onChange={replace} />
+        ))}
       </div>
     </div>
   )

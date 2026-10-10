@@ -5,17 +5,10 @@ import ResourcesView from './components/ResourcesView.tsx'
 import ConnectionBanner from './components/ConnectionBanner.tsx'
 import { useConnectionStatus } from './connection.ts'
 
-type Section = 'projects' | 'resources'
-
-const SECTIONS: { id: Section; label: string; icon: string }[] = [
-  { id: 'projects', label: 'User Management', icon: '◉' },
-  { id: 'resources', label: 'Resource Management', icon: '◈' },
-]
-
 export default function App() {
   const [userID, setUserID] = useState<string | null>(null)
+  // Three pages without a router: no userID shows Sign In, no projectID shows Projects, otherwise Hardware.
   const [projectID, setProjectID] = useState<string | null>(null)
-  const [section, setSection] = useState<Section>('projects')
   const connection = useConnectionStatus()
 
   if (!userID) {
@@ -30,7 +23,6 @@ export default function App() {
   const signOut = () => {
     setUserID(null)
     setProjectID(null)
-    setSection('projects')
   }
 
   return (
@@ -48,25 +40,12 @@ export default function App() {
       </header>
       <ConnectionBanner />
 
-      <div className="section-tabs">
-        {SECTIONS.map((s) => (
-          <button
-            key={s.id}
-            className={`sec-tab${section === s.id ? ' active' : ''}`}
-            onClick={() => setSection(s.id)}
-          >
-            <span className="sec-tab-icon">{s.icon}</span>
-            {s.label}
-            {s.id === 'resources' && projectID && <span className="sec-tab-badge">{projectID}</span>}
-          </button>
-        ))}
-      </div>
-
       <main className="content">
-        {section === 'projects' && (
-          <ProjectsView userID={userID} selectedID={projectID} onSelect={setProjectID} />
+        {projectID ? (
+          <ResourcesView projectID={projectID} onBack={() => setProjectID(null)} />
+        ) : (
+          <ProjectsView userID={userID} onOpen={setProjectID} />
         )}
-        {section === 'resources' && <ResourcesView projectID={projectID} />}
       </main>
     </div>
   )
