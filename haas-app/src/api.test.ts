@@ -30,7 +30,7 @@ describe('api requests', () => {
 
   it('throws an ApiError carrying the status and the server message', async () => {
     fetchMock.mockReturnValueOnce(reply(409, { error: 'Only 3 units of HWSet1 available' }))
-    const err = await api.checkOut('demo1', 'HWSet1', Integer.of(5)).catch((e) => e)
+    const err = await api.checkOut('demoproj1', 'HWSet1', Integer.of(5)).catch((e) => e)
     expect(err).toBeInstanceOf(ApiError)
     expect(err.isConflict()).toBe(true)
     expect(err.message).toBe('Only 3 units of HWSet1 available')

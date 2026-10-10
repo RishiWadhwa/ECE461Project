@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { handle } from './mock-api.ts'
 import { createSeededDB, type MockDB } from './mock-db.ts'
+import { validateProjectID } from './src/validation.ts'
 
 let db: MockDB
 
@@ -42,40 +43,49 @@ describe('mock projects', () => {
     expect(post('/create_project', { userID: 'alice', projectID: 'bad-id-123', name: 'x', description: '' })?.status).toBe(400)
   })
 
+  it('seeds only project IDs that pass the project ID rules', () => {
+    for (const id of db.projects.keys()) expect(() => validateProjectID(id)).not.toThrow()
+  })
+
+  it('returns 404 for a well-formed project ID that does not exist', () => {
+    expect(() => validateProjectID('missingproj')).not.toThrow()
+    expect(get('/get_project_info', { projectID: 'missingproj' })).toEqual({ status: 404, body: { error: 'Project not found' } })
+  })
+
   it('rejects a taken project ID with 409', () => {
-    expect(post('/create_project', { userID: 'alice', projectID: 'demo1', name: 'x', description: '' })?.status).toBe(409)
+    expect(post('/create_project', { userID: 'alice', projectID: 'demoproj1', name: 'x', description: '' })?.status).toBe(409)
   })
 
   it('returns 404 for an unknown project and 409 when already a member', () => {
-    expect(post('/join_project', { userID: 'alice', projectID: 'missing' })?.status).toBe(404)
-    expect(post('/join_project', { userID: 'testuser', projectID: 'demo1' })?.status).toBe(409)
-    expect(post('/join_project', { userID: 'alice', projectID: 'demo1' })?.status).toBe(200)
+    expect(post('/join_project', { userID: 'alice', projectID: 'missingproj' })?.status).toBe(404)
+    expect(post('/join_project', { userID: 'testuser', projectID: 'demoproj1' })?.status).toBe(409)
+    expect(post('/join_project', { userID: 'alice', projectID: 'demoproj1' })?.status).toBe(200)
   })
 })
 
 describe('mock hardware', () => {
   it('moves units between the pool and the project', () => {
-    expect(post('/check_out', { projectID: 'edge42', hwSet: 'HWSet2', quantity: 5 })?.body).toMatchObject({ available: 80 })
-    expect(post('/check_in', { projectID: 'edge42', hwSet: 'HWSet2', quantity: 5 })?.body).toMatchObject({ available: 85 })
+    expect(post('/check_out', { projectID: 'edgeproj42', hwSet: 'HWSet2', quantity: 5 })?.body).toMatchObject({ available: 80 })
+    expect(post('/check_in', { projectID: 'edgeproj42', hwSet: 'HWSet2', quantity: 5 })?.body).toMatchObject({ available: 85 })
   })
 
   it('returns 409 when another project already took the units', () => {
     // Both users saw 70 available; the first checkout wins and the second is refused.
-    expect(post('/check_out', { projectID: 'demo1', hwSet: 'HWSet1', quantity: 60 })?.status).toBe(200)
-    const late = post('/check_out', { projectID: 'edge42', hwSet: 'HWSet1', quantity: 60 })
+    expect(post('/check_out', { projectID: 'demoproj1', hwSet: 'HWSet1', quantity: 60 })?.status).toBe(200)
+    const late = post('/check_out', { projectID: 'edgeproj42', hwSet: 'HWSet1', quantity: 60 })
     expect(late?.status).toBe(409)
     expect(late?.body).toEqual({ error: 'Only 10 units of HWSet1 available' })
   })
 
   it('refuses to check in more than the project holds', () => {
-    expect(post('/check_in', { projectID: 'demo1', hwSet: 'HWSet1', quantity: 21 })?.status).toBe(409)
-    expect(post('/check_in', { projectID: 'demo1', hwSet: 'HWSet2', quantity: 1 })?.status).toBe(409)
+    expect(post('/check_in', { projectID: 'demoproj1', hwSet: 'HWSet1', quantity: 21 })?.status).toBe(409)
+    expect(post('/check_in', { projectID: 'demoproj1', hwSet: 'HWSet2', quantity: 1 })?.status).toBe(409)
   })
 
   it('rejects non-positive or fractional quantities with 400', () => {
-    expect(post('/check_out', { projectID: 'demo1', hwSet: 'HWSet1', quantity: 0 })?.status).toBe(400)
-    expect(post('/check_out', { projectID: 'demo1', hwSet: 'HWSet1', quantity: 1.5 })?.status).toBe(400)
-    expect(post('/check_out', { projectID: 'demo1', hwSet: 'HWSet1', quantity: '5' })?.status).toBe(400)
+    expect(post('/check_out', { projectID: 'demoproj1', hwSet: 'HWSet1', quantity: 0 })?.status).toBe(400)
+    expect(post('/check_out', { projectID: 'demoproj1', hwSet: 'HWSet1', quantity: 1.5 })?.status).toBe(400)
+    expect(post('/check_out', { projectID: 'demoproj1', hwSet: 'HWSet1', quantity: '5' })?.status).toBe(400)
   })
 
   it('passes non-API routes through to Vite', () => {
