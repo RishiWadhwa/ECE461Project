@@ -23,7 +23,18 @@ export class AppError extends Error {
     }
 }
 
+/**
+ * This class represents an error thrown when text or a number cannot be turned into a whole number,
+ * much like Java's NumberFormatException. It is thrown by Integer.of() and Integer.valueOf() in math.ts.
+ * Its message describes the input (e.g. 'For input string: "1e3"'), not the form it came from, so
+ * callers should replace it with a field-specific message before showing it to the user.
+ */
 export class NumberFormatError extends AppError {
+    /**
+     * This is the constructor for the NumberFormatError class. It passes the message to AppError
+     * and sets the error's name to "NumberFormatError".
+     * @param message This parameter is a description of the input that could not be converted.
+     */
     constructor(message: string) {
         super(message);
         this.name = "NumberFormatError";
