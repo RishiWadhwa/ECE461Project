@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { api } from '../api.ts'
 import type { HardwareSet } from '../api.ts'
-import { ApiError, ValidationError, errorMessage } from '../errors.ts'
-import { parseQuantity, validateQuantity } from '../validation.ts'
+import { ApiError, NumberFormatError, ValidationError, errorMessage, type NumberFormatReason } from '../errors.ts'
+import { validateQuantity } from '../validation.ts'
 import { Integer } from '../math.ts'
 import { enqueue } from '../session.ts'
 
@@ -10,6 +10,15 @@ interface Props {
   hwSet: HardwareSet
   projectID: string
   onChange: (updated: HardwareSet) => void
+}
+
+// What the quantity box shows for each way Integer.valueOf() can reject the text. Typed by reason,
+// so adding a reason to NumberFormatError fails the build until it has a message here.
+const QUANTITY_FORMAT_MESSAGES: Record<NumberFormatReason, string> = {
+  empty: 'Quantity is required!',
+  decimal: 'Quantity must be a whole number, not a decimal!',
+  invalid: 'Quantity must be a whole number!',
+  outOfRange: 'Quantity is too large!',
 }
 
 export default function HardwareSetCard({ hwSet, projectID, onChange }: Props) {
@@ -25,13 +34,24 @@ export default function HardwareSetCard({ hwSet, projectID, onChange }: Props) {
     try {
       // Check-in limit is the units this project holds, which the API does not expose yet,
       // so only the server enforces it for now. Future feature: use hwSet.checkedOut here once it exists.
-      const amount = parseQuantity(qty)
-      validateQuantity(amount, Integer.of(kind === 'out' ? hwSet.available : Number.MAX_SAFE_INTEGER))
+      let amount: Integer
+      try {
+        amount = Integer.valueOf(qty)
+      } catch (err) {
+        if (err instanceof NumberFormatError) {
+          setMessage({ kind: 'error', text: QUANTITY_FORMAT_MESSAGES[err.reason] })
+          return
+        }
+        throw err
+      }
+      // Built outside the inner try: a bad count from the server is not the user's typing mistake.
+      const max = Integer.of(kind === 'out' ? hwSet.available : Number.MAX_SAFE_INTEGER)
+      const quantity = validateQuantity(amount, max)
       const call = kind === 'out' ? api.checkOut : api.checkIn
-      const updated = await enqueue(`${projectID}:${hwSet.name}`, () => call(projectID, hwSet.name, amount))
+      const updated = await enqueue(`${projectID}:${hwSet.name}`, () => call(projectID, hwSet.name, quantity))
       onChange(updated)
       setQty('')
-      setMessage({ kind: 'ok', text: `${kind === 'out' ? 'Checked out' : 'Checked in'} ${amount} unit${amount.intValue() === 1 ? '' : 's'}` })
+      setMessage({ kind: 'ok', text: `${kind === 'out' ? 'Checked out' : 'Checked in'} ${quantity} unit${quantity.intValue() === 1 ? '' : 's'}` })
     } catch (err) {
       if (err instanceof ValidationError) {
         setMessage({ kind: 'error', text: err.messageFor('quantity') ?? errorMessage(err, 'Invalid quantity') })

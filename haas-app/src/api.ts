@@ -2,7 +2,7 @@
 // Route names follow the README endpoint table; change them here if the Flask API differs.
 import { ApiError, NetworkError } from './errors.ts'
 import { markOffline, markOnline, setProbe } from './connection.ts'
-import type { Integer } from './math.ts'
+import type { NewUserCredentials, ProjectID, Quantity, SignInCredentials } from './validation.ts'
 
 export interface Project {
   projectID: string
@@ -56,26 +56,33 @@ const post = <T>(path: string, data: unknown) =>
 
 const q = (params: Record<string, string>) => '?' + new URLSearchParams(params).toString()
 
+/**
+ * This type is a project the user is creating: the same fields as Project, but the projectID must have
+ * passed validateProjectID(). Project itself stays a plain string ID because it also describes what the
+ * server sends back, which never went through the validator.
+ */
+export type NewProject = Omit<Project, 'projectID'> & {projectID: ProjectID};
+
 export const api = {
-  login: (userID: string, password: string) =>
-    post<{ userID: string }>('/login', { userID, password }),
-  addUser: (userID: string, password: string) =>
-    post<{ userID: string }>('/add_user', { userID, password }),
+  login: (creds: SignInCredentials) =>
+    post<{ userID: string }>('/login', { userID: creds.userID, password: creds.password }),
+  addUser: (creds: NewUserCredentials) =>
+    post<{ userID: string }>('/add_user', { userID: creds.userID, password: creds.password }),
 
   getUserProjects: (userID: string) =>
     request<{ projects: Project[] }>('/get_user_projects_list' + q({ userID })),
   getProjectInfo: (projectID: string) =>
     request<ProjectInfo>('/get_project_info' + q({ projectID })),
-  createProject: (userID: string, project: Project) =>
+  createProject: (userID: string, project: NewProject) =>
     post<Project>('/create_project', { userID, ...project }),
-  joinProject: (userID: string, projectID: string) =>
+  joinProject: (userID: string, projectID: ProjectID) =>
     post<Project>('/join_project', { userID, projectID }),
 
   getHardwareNames: () => request<{ names: string[] }>('/get_all_hw_names'),
   getHardwareInfo: (name: string) => request<HardwareSet>('/get_hw_info' + q({ name })),
-  checkOut: (projectID: string, hwSet: string, quantity: Integer) =>
+  checkOut: (projectID: string, hwSet: string, quantity: Quantity) =>
     post<HardwareSet>('/check_out', { projectID, hwSet, quantity }),
-  checkIn: (projectID: string, hwSet: string, quantity: Integer) =>
+  checkIn: (projectID: string, hwSet: string, quantity: Quantity) =>
     post<HardwareSet>('/check_in', { projectID, hwSet, quantity }),
 }
 

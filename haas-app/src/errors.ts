@@ -4,6 +4,14 @@
 export type Field = "userID" | "password" | "projectID" | "quantity";
 
 /**
+ * This type defines why a NumberFormatError was thrown, so code can react to the kind of failure
+ * without reading the message: "empty" (blank text), "decimal" (a number, but not a whole one, e.g. "2.5"),
+ * "invalid" (not a plain number at all, e.g. "1e3", "abc", NaN or Infinity), or "outOfRange"
+ * (a valid number too large for the type to hold exactly).
+ */
+export type NumberFormatReason = "empty" | "decimal" | "invalid" | "outOfRange"
+
+/**
  * This file contains custom error classes and a utility function for handling errors in the application.
  */
 export class AppError extends Error {
@@ -31,14 +39,17 @@ export class AppError extends Error {
  * callers should replace it with a field-specific message before showing it to the user.
  */
 export class NumberFormatError extends AppError {
+    readonly reason: NumberFormatReason
+
     /**
      * This is the constructor for the NumberFormatError class. It passes the message to AppError
      * and sets the error's name to "NumberFormatError".
      * @param message This parameter is a description of the input that could not be converted.
      */
-    constructor(message: string) {
+    constructor(message: string, reason: NumberFormatReason) {
         super(message);
         this.name = "NumberFormatError";
+        this.reason = reason;
     }
 }
 

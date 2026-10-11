@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ValidationError } from './errors.ts'
 import { Integer } from './math.ts'
-import { parseQuantity, validateCreds, validateProjectID, validateQuantity } from './validation.ts'
+import { validateCreds, validateProjectID, validateQuantity } from './validation.ts'
 
 function caught(fn: () => void): ValidationError {
   try {
@@ -77,7 +77,7 @@ describe('validateProjectID', () => {
   })
 })
 
-// NaN and 2.5 never reach validateQuantity: parseQuantity rejects them first (tested below).
+// NaN and 2.5 never reach validateQuantity: Integer.of() and Integer.valueOf() reject them first (see math.test.ts).
 describe('validateQuantity', () => {
   const ten = Integer.of(10)
 
@@ -100,18 +100,18 @@ describe('validateQuantity', () => {
   })
 })
 
-describe('parseQuantity', () => {
-  it('parses whole numbers', () => {
-    expect(parseQuantity(' 12 ').intValue()).toBe(12)
+describe('validators return the checked value', () => {
+  it('validateCreds returns the userID and password it checked', () => {
+    expect(validateCreds('testuser', 'test1234', 'signIn')).toEqual({ userID: 'testuser', password: 'test1234' })
+    expect(validateCreds('testuser', 'test1234', 'signUp')).toEqual({ userID: 'testuser', password: 'test1234' })
   })
 
-  it.each([
-    ['2.5', 'Quantity must be a whole number, not a double!'],
-    ['5.0', 'Quantity must be a whole number, not a double!'],
-    ['1e0', 'Quantity must be a whole number!'],
-    ['abc', 'Quantity must be a whole number!'],
-    ['99999999999999999', 'Quantity must be a whole number!'],
-  ])('rejects %j', (text, message) => {
-    expect(caught(() => parseQuantity(text)).messageFor('quantity')).toBe(message)
+  it('validateQuantity returns the same Integer', () => {
+    const five = Integer.of(5)
+    expect(validateQuantity(five, Integer.of(10))).toBe(five)
+  })
+
+  it('validateProjectID returns the same ID', () => {
+    expect(validateProjectID('project01')).toBe('project01')
   })
 })

@@ -21,8 +21,8 @@ export default function SignInView({ onSignedIn }: Props) {
     setBusy(true)
     setError(null)
     try {
-      validateCreds(userID.trim(), password, 'signIn')
-      const res = await api.login(userID.trim(), password)
+      const creds = validateCreds(userID.trim(), password, 'signIn')
+      const res = await api.login(creds)
       onSignedIn(res.userID ?? userID.trim())
     } catch (err) {
       setError(errorMessage(err, 'Sign in failed'))

@@ -2,6 +2,17 @@ import { describe, expect, it } from 'vitest'
 import { Double, Float, Integer } from './math.ts'
 import { NumberFormatError } from './errors.ts'
 
+/** Runs fn and returns the reason of the NumberFormatError it throws. */
+function reasonOf(fn: () => unknown): string {
+  try {
+    fn()
+  } catch (err) {
+    if (err instanceof NumberFormatError) return err.reason
+    throw err
+  }
+  throw new Error('expected a NumberFormatError')
+}
+
 describe('Integer.of', () => {
   it.each([0, 5, -3, Number.MAX_SAFE_INTEGER])('wraps %d', (n) => {
     expect(Integer.of(n).intValue()).toBe(n)
@@ -9,6 +20,15 @@ describe('Integer.of', () => {
 
   it.each([2.5, Number.NaN, Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER + 1])('rejects %d', (n) => {
     expect(() => Integer.of(n)).toThrow(NumberFormatError)
+  })
+
+  it.each([
+    [2.5, 'invalid'],
+    [Number.NaN, 'invalid'],
+    [Number.POSITIVE_INFINITY, 'invalid'],
+    [Number.MAX_SAFE_INTEGER + 1, 'outOfRange'],
+  ])('classifies %d as %s', (n, reason) => {
+    expect(reasonOf(() => Integer.of(n))).toBe(reason)
   })
 })
 
@@ -31,6 +51,24 @@ describe('Integer.valueOf', () => {
       expect(() => Integer.valueOf(text)).toThrow(NumberFormatError)
     },
   )
+
+  it.each([
+    ['', 'empty'],
+    ['   ', 'empty'],
+    ['2.5', 'decimal'],
+    ['5.0', 'decimal'],
+    ['.5', 'decimal'],
+    ['7.', 'decimal'],
+    ['1e3', 'invalid'],
+    ['0x10', 'invalid'],
+    ['abc', 'invalid'],
+    ['-', 'invalid'],
+    ['9007199254740992', 'outOfRange'],
+    ['99999999999999999', 'outOfRange'],
+    ['9'.repeat(400), 'outOfRange'],
+  ])('classifies %j as %s', (text, reason) => {
+    expect(reasonOf(() => Integer.valueOf(text))).toBe(reason)
+  })
 
   it('describes the input, not the form it came from', () => {
     expect(() => Integer.valueOf('')).toThrow('Empty string')
@@ -70,6 +108,12 @@ describe('Double.valueOf', () => {
     expect(() => Double.of(Number.NaN)).toThrow(NumberFormatError)
     expect(() => Double.of(Number.POSITIVE_INFINITY)).toThrow(NumberFormatError)
   })
+
+  it('classifies failures', () => {
+    expect(reasonOf(() => Double.valueOf(''))).toBe('empty')
+    expect(reasonOf(() => Double.valueOf('1e0'))).toBe('invalid')
+    expect(reasonOf(() => Double.of(Number.NaN))).toBe('invalid')
+  })
 })
 
 describe('Float', () => {
@@ -85,6 +129,13 @@ describe('Float', () => {
   it('rejects values beyond the float range', () => {
     expect(() => Float.of(3.5e38)).toThrow(NumberFormatError)
     expect(() => Float.valueOf('9'.repeat(40))).toThrow(NumberFormatError)
+  })
+
+  it('classifies too-large values as outOfRange and non-finite ones as invalid', () => {
+    expect(reasonOf(() => Float.of(3.5e38))).toBe('outOfRange')
+    expect(reasonOf(() => Float.valueOf('9'.repeat(40)))).toBe('outOfRange')
+    expect(reasonOf(() => Float.of(Number.NaN))).toBe('invalid')
+    expect(reasonOf(() => Float.valueOf('3.5f'))).toBe('invalid')
   })
 
   it('prints and serializes as its number', () => {

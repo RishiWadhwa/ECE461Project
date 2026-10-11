@@ -84,9 +84,9 @@ export default function ProjectsView({ userID, onOpen }: Props) {
     e.preventDefault()
     const projectID = newID.trim()
     run(async () => {
-      validateProjectID(projectID)
+      const id = validateProjectID(projectID)
       const p = await api.createProject(userID, {
-        projectID,
+        projectID: id,
         name: newName.trim(),
         description: newDesc.trim(),
       })
@@ -117,7 +117,7 @@ export default function ProjectsView({ userID, onOpen }: Props) {
   //   const projectID = joinID.trim()
   //   run(async () => {
   //     try {
-  //       const p = await api.joinProject(userID, projectID)
+  //       const p = await api.joinProject(userID, validateProjectID(projectID))
   //       onSelect(p.projectID ?? projectID)
   //     } catch (err) {
   //       // Already a member: nothing to join, so just switch to that project.
