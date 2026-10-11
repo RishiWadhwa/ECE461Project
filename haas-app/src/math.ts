@@ -31,7 +31,7 @@ export class Integer {
      * @returns This method returns an Integer holding n.
      */
     static of(n: number): Integer {
-        if (!Number.isSafeInteger(n)) {throw new NumberFormatError(`Not a safe integer: ${n}`);}
+        if (!Number.isSafeInteger(n)) {throw new NumberFormatError(`Not a safe integer: ${n}`, Number.isInteger(n) ? "outOfRange" : "invalid");}
         return new Integer(n);
     }
 
@@ -46,17 +46,18 @@ export class Integer {
     static valueOf(text: string): Integer {
         const t = text.trim();
         if (t === "") {
-            throw new NumberFormatError("Empty string");
+            throw new NumberFormatError("Empty string", "empty");
         }
         if (!/^[+-]?\d+$/.test(t)) {
-            throw new NumberFormatError(`For input string: "${text}"`);
+            throw new NumberFormatError(`For input string: "${text}"`, DECIMAL.test(t) ? "decimal" : "invalid");
         }
         // Builds the value one digit at a time instead of calling Number(). Past MAX_SAFE_INTEGER
-        // the result is no longer exact, so Integer.of() rejects it.
+        // the result is no longer exact (and very long input reaches Infinity), so the check below rejects it.
         let n = 0;
         for (const c of t.replace(/^[+-]/, "")) {
             n = n * 10 + (c.charCodeAt(0) - 48);
         }
+        if (!Number.isSafeInteger(n)) {throw new NumberFormatError(`For input string: "${text}"`, "outOfRange");}
         return Integer.of(t.startsWith("-") ? -n : n);
     }
 
@@ -112,23 +113,6 @@ const DECIMAL = /^[+-]?(\d+\.?\d*|\.\d+)$/;
 const FLOAT_MAX = 3.4028234663852886e38;
 
 /**
- * This function checks text for Double.valueOf() and Float.valueOf() and converts it to a number.
- * @param text This parameter is the raw text from an input box.
- * @returns This function returns the number the text spells out.
- */
-function parseDecimal(text: string): number {
-    const t = text.trim();
-    if (t === "") {
-        throw new NumberFormatError("Empty string");
-    }
-    if (!DECIMAL.test(t)) {
-        throw new NumberFormatError(`For input string: "${text}"`);
-    }
-    // The regex above already allows only plain decimal text. parseFloat rounds it correctly to the nearest double.
-    return parseFloat(t);
-}
-
-/**
  * This class wraps a 64-bit decimal number, much like Java's Double. It works the same way as Integer:
  * the constructor is private, and of() and valueOf() check the value first. Unlike Java, valueOf()
  * rejects exponent notation ("1e0") so that every decimal the user types is written out in full.
@@ -158,7 +142,7 @@ export class Double {
      * @returns This method returns a Double holding n.
      */
     static of(n: number): Double {
-        if (!Number.isFinite(n)) {throw new NumberFormatError(`Not a finite number: ${n}`);}
+        if (!Number.isFinite(n)) {throw new NumberFormatError(`Not a finite number: ${n}`, "invalid");}
         return new Double(n);
     }
 
@@ -170,7 +154,15 @@ export class Double {
      * @returns This method returns a Double holding the parsed value.
      */
     static valueOf(text: string): Double {
-        return Double.of(parseDecimal(text));
+        const t = text.trim();
+        if (t === "") {
+            throw new NumberFormatError("Empty string", "empty");
+        }
+        if (!DECIMAL.test(t)) {
+            throw new NumberFormatError(`For input string: "${text}"`, "invalid");
+        }
+        // The regex above already allows only plain decimal text. parseFloat rounds it correctly to the nearest double.
+        return Double.of(parseFloat(t));
     }
 
     /**
@@ -236,18 +228,19 @@ export class Float {
      * @returns This method returns a Float holding n rounded to 32-bit precision.
      */
     static of(n: number): Float {
-        if (!Number.isFinite(n) || Math.abs(n) > FLOAT_MAX) {throw new NumberFormatError(`Not a finite float: ${n}`);}
+        if (!Number.isFinite(n) || Math.abs(n) > FLOAT_MAX) {throw new NumberFormatError(`Not a finite float: ${n}`, Number.isFinite(n) ? "outOfRange" : "invalid");}
         return new Float(Math.fround(n));
     }
 
     /**
      * This method implements Java's Float.valueOf(String), with the same rules as Double.valueOf():
-     * plain decimal text only, no exponent notation.
+     * plain decimal text only, no exponent notation. It reads the text with Double.valueOf(), then
+     * narrows the result with Float.of(), so the text rules live in one place.
      * @param text This parameter is the raw text from an input box.
      * @returns This method returns a Float holding the parsed value.
      */
     static valueOf(text: string): Float {
-        return Float.of(parseDecimal(text));
+        return Float.of(Double.valueOf(text).doubleValue());
     }
 
     /**
