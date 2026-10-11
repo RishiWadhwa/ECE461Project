@@ -20,9 +20,9 @@ export default function NewUserModal({ onClose, onCreated }: Props) {
     setBusy(true)
     setError(null)
     try {
-      validateCreds(userID.trim(), password, 'signUp')
-      await api.addUser(userID.trim(), password)
-      onCreated(userID.trim())
+      const creds = validateCreds(userID.trim(), password, 'signUp')
+      await api.addUser(creds)
+      onCreated(creds.userID)
     } catch (err) {
       setError(errorMessage(err, 'Could not create user'))
     } finally {
