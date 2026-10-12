@@ -1,23 +1,77 @@
+The mock is two files, both dev-only and NOT final modules:
+- haas-app/mock-db.ts holds the in-memory tables (users, projects, memberships, hardware, holdings).
+    createSeededDB() builds a fresh seeded copy; data resets every time the dev server restarts.
+- haas-app/mock-api.ts holds the route logic. handle(db, method, path, query, body) is a plain function
+    so tests can call it directly; mockApi() wraps it as a Vite plugin. It is only used when VITE_API_URL is unset.
+
 Logins (seeded in haas-app/mock-db.ts):
 testuser / test1234
 alice / alice1234
 bob / bob12345
 
+Seeded projects and members:
+demoproj1  (Demo Project)  - testuser          - holds 20 of HWSet1
+rflabproj  (RF Lab)        - testuser, bob     - holds 10 of HWSet1, 15 of HWSet2
+edgeproj42 (Edge Compute)  - alice, bob        - holds nothing
+
+Seeded hardware:
+HWSet1 - capacity 100, available 70   (100 - 20 - 10)
+HWSet2 - capacity 100, available 85   (100 - 15)
+If you change the holdings, change hardware.available to match.
+
+Input rules (haas-app/src/validation.ts), now also enforced by the mock server:
+- UserID: letters and digits only, at least 3 characters.
+- Password: at least 8 characters.
+- Project ID: letters and digits only, at least 8 characters. Every seeded ID passes this.
+- Quantity: a whole number greater than 0, sent as a JSON number. "5" (a string), 0, or 1.5 return 400.
+Sign-in only checks that both fields are filled in; the rules apply when creating an account.
+api.ts only accepts values that have already been through these validators, so passing an
+unvalidated value to an API call is a compile error, not a runtime one.
+
 The add and subtract logic lives in three places:
 
-- haas-app/src/components/HardwareSetCard.tsx (submit) is the UI. It picks api.checkOut or api.checkIn depending on which button you click.
+- haas-app/src/components/HardwareSetCard.tsx (submit) is the UI. It validates the quantity, then picks api.checkOut
+    or api.checkIn depending on which button you click. Requests for the same project + hardware set go through
+    the queue in session.ts (enqueue, keyed "projectID:hwSet") so they run one at a time, in order.
 - haas-app/src/api.ts (api.checkOut / api.checkIn) is the client. checkOut and checkIn POST { projectID, hwSet, quantity } to /check_out and /check_in.
 - haas-app/mock-api.ts (the /check_out and /check_in case) is the mock server logic that does the math. It tracks how many
     units each project holds (holdings table in mock-db.ts). Check-out subtracts from available and adds to the project;
     check-in does the reverse.
 
-The frontend does no arithmetic of its own. 
-It displays whatever the server returns. 
-When you build the real backend, the same rules will need to be implemented there. 
-The mock follows docs/api_calls.pdf: checking out more than is available, or checking in more than the project holds,
-returns 409. Joining a project you're already in returns 409; an unknown project ID returns 404.
+The frontend does no arithmetic of its own.
+It displays whatever the server returns.
+When you build the real backend, the same rules will need to be implemented there.
+
+Error codes (the mock follows docs/api_calls.pdf):
+400 - input breaks the rules above (bad userID/password on sign-up, bad project ID, bad quantity)
+401 - wrong userID or password on login
+404 - unknown project ID or hardware set
+409 - userID already exists, project ID already taken, already a member of the project,
+      checking out more than is available, or checking in more than the project holds
+
+Test cases (run `npm test` from haas-app/; `npx vitest run mock-api.test.ts` for just the mock):
+haas-app/mock-api.test.ts - each test starts from a fresh createSeededDB().
+  Users:
+    - testuser / test1234 logs in; a wrong password gets 401.
+    - Signing up as "alice" again gets 409.
+    - Sign-up with "ab", "bad user!", or password "short" gets 400, and that account cannot log in.
+  Projects:
+    - alice creates "project9" and is listed as its only member.
+    - Project IDs "p9" (too short) and "bad-id-123" (dash) get 400.
+    - Every seeded project ID passes validateProjectID.
+    - "missingproj" is a valid ID but does not exist, so get_project_info returns 404.
+    - Creating "demoproj1" again gets 409.
+    - Joining "missingproj" gets 404; testuser joining demoproj1 gets 409; alice joining demoproj1 succeeds.
+  Hardware:
+    - edgeproj42 checks out 5 of HWSet2 (85 -> 80), then checks them back in (80 -> 85).
+    - Two projects both see 70 of HWSet1: demoproj1 takes 60, then edgeproj42 asking for 60 gets
+      409 "Only 10 units of HWSet1 available".
+    - demoproj1 checking in 21 of HWSet1 (holds 20), or 1 of HWSet2 (holds 0), gets 409.
+    - Quantities 0, 1.5, and "5" get 400.
+    - Non-API routes (e.g. /src/main.tsx) return null so Vite serves them.
+Other suites in haas-app/src/: api.test.ts (client requests, errors, offline/timeout handling),
+validation.test.ts, math.test.ts (Integer/Double/Float), errors.test.ts, session.test.ts (request queue).
 
 To test the offline status light, run this in the browser console while `npm run dev` is up:
     fetch('/__mock/outage?seconds=15', { method: 'POST' })
 API requests are dropped for 15s, the header light turns red, and the app recovers on its own afterwards.
-
