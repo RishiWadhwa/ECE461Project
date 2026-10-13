@@ -1,12 +1,12 @@
 # API Roadmap: from the Mock API to Flask + MongoDB
 
-## Our transition from Mock API to Flask
+## Our transition from the Mock API to Flask
 
 Last updated: 10/12/26
 
-This doc lists what has to change in `haas-app/src/api.ts`, in the backend, and in the database so the
-frontend can stop using the mock (`haas-app/mock-api.ts` + `haas-app/mock-db.ts`) and talk to the real
-Flask + MongoDB app. It covers:
+Right now the frontend runs against a mock server (`haas-app/mock-api.ts` + `haas-app/mock-db.ts`). This doc is
+our plan for switching it over to the real Flask + MongoDB backend: what has to change in
+`haas-app/src/api.ts`, what the backend needs to build, and how the database should be laid out. Sections:
 
 1. [How the frontend connects today](#1-how-the-frontend-connects-today)
 2. [Existing routes the backend must match](#2-existing-routes-the-backend-must-match)
@@ -19,8 +19,8 @@ Flask + MongoDB app. It covers:
 9. [Deferred (not in this iteration)](#9-deferred-not-in-this-iteration)
 10. [Open questions](#10-open-questions)
 
-`docs/api_calls.pdf` is the original hand-drawn route spec. This doc follows it except where noted (see the
-bcrypt correction in section 4).
+We started from the hand-drawn route spec in `docs/api_calls.pdf`. This doc follows it except where noted
+below. The biggest difference is how passwords get checked (section 4).
 
 ---
 
@@ -36,29 +36,37 @@ flowchart LR
   Flask --> Mongo[(MongoDB)]
 ```
 
-- `api.ts` is the only file that makes HTTP requests. Components call `api.*` and never use `fetch` directly.
-- `BASE = import.meta.env.VITE_API_URL ?? ''`. When the variable is unset, `vite.config.ts` installs the
-  mock middleware and requests go to the same origin.
-- **Error contract:** a non-2xx response must have a JSON body `{ "error": "<message>" }`. `api.ts` turns
-  that into an `ApiError(status, message)`, and components show the message as-is. So **write backend
-  error messages for the user to read.**
-- **Status codes the frontend relies on:**
-  - `400`: bad input
-  - `401`: bad login
-  - `404`: missing project or hardware set
-  - `409`: conflict (taken ID, already a member, not enough units)
-  - `502`/`503`/`504`: server down, which turns the status light offline
-- `connection.ts` re-checks `/get_all_hw_names` every 5s while offline, so that route must stay cheap
-  and need no auth.
-- `session.ts` makes requests for the same `projectID:hwSet` run one at a time in the browser. That only
-  covers one tab. The backend still has to be correct when several users act at once (section 5).
+All HTTP requests go through `api.ts`. Components call the `api.*` functions and never use `fetch`
+themselves.
+
+`api.ts` builds every URL from `BASE = import.meta.env.VITE_API_URL ?? ''`. If `VITE_API_URL` isn't set,
+`vite.config.ts` plugs the mock in as dev middleware and requests go to the same origin.
+
+Any non-2xx response needs a JSON body like `{ "error": "<message>" }`. `api.ts` turns that into an
+`ApiError(status, message)`, and the components show the message to the user exactly as it comes back. So
+backend error messages should be written for users to read, not for us.
+
+The frontend looks for these status codes:
+
+- `400`: bad input
+- `401`: bad login
+- `404`: missing project or hardware set
+- `409`: conflict (ID already taken, already a member, not enough units)
+- `502`/`503`/`504`: server down, which switches the status light to offline
+
+While the app is offline, `connection.ts` calls `/get_all_hw_names` every 5 seconds to see if the server is
+back. That route needs to stay cheap and shouldn't require auth.
+
+`session.ts` queues requests for the same `projectID:hwSet` so they run one at a time. That only helps inside
+a single browser tab, though. The backend still has to handle several users hitting the same set at once
+(section 5).
 
 ---
 
 ## 2. Existing routes the backend must match
 
-These are already called by `api.ts` and implemented in the mock. Flask has to accept the same shapes and
-return the same statuses, so the frontend works with no changes when `VITE_API_URL` is set.
+`api.ts` already calls all of these, and the mock implements them. If Flask accepts the same request shapes
+and returns the same statuses, the frontend should work without changes once `VITE_API_URL` is set.
 
 | Route | Method | Request | 200 response | Errors |
 |---|---|---|---|---|
@@ -73,28 +81,28 @@ return the same statuses, so the frontend works with no changes when `VITE_API_U
 | `/check_out` | POST | `{ projectID, hwSet, quantity }` | updated `HardwareSet` | 400 bad quantity, 404, 409 not enough available |
 | `/check_in` | POST | `{ projectID, hwSet, quantity }` | updated `HardwareSet` | 400, 404, 409 project holds fewer units |
 
-Notes for the backend team:
+A few things for the backend team:
 
-- **The empty list is not an error.** `/get_user_projects_list` returns `{ projects: [] }` when the user
-  has no projects. The PDF suggested an "error" for this case, but the frontend already shows "You are not
-  part of any project yet." from an empty array.
-- **Joining when already a member.** `/join_project` must still return **409** in that case. The frontend
-  catches that 409 and redirects to the project
-  (`ProjectsView.tsx`, `join`), and a commented-out version there shows the error instead.
-- **Creating a project makes the creator a member,** in the same request.
-- **Quantity type.** `quantity` arrives as a JSON integer. Reject strings, decimals, `<= 0` and booleans
-  with 400. (In Python, `True` is an `int`, so check `type(q) is int`.)
-- **Re-run the validation rules.** Repeat the `validation.ts` rules on the server: allowed characters are
-  letters and digits only, and the min lengths are still placeholders. Browser checks can be bypassed.
-- **Not built yet:** `/create_hardware_set` is listed in the README, but nothing calls it.
+- `/get_user_projects_list` should return `{ projects: [] }` when the user has no projects. That isn't an
+  error. The PDF suggested returning one, but the frontend already shows "You are not part of any project
+  yet." when the array is empty.
+- `/join_project` should still return 409 when the user is already a member. The frontend catches that 409
+  and sends them to the project anyway (`join` in `ProjectsView.tsx`). There's a commented-out version right
+  below it that shows the error instead.
+- Creating a project should add the creator as a member in the same request.
+- `quantity` comes in as a JSON integer. Return 400 for strings, decimals, anything `<= 0`, and booleans.
+  Booleans are easy to miss in Python because `True` counts as an `int`, so check `type(q) is int`.
+- The server needs to repeat the checks from `validation.ts`: letters and digits only, and the minimum
+  lengths (which are still placeholders). Anyone can skip the browser checks by sending requests directly.
+- `/create_hardware_set` is listed in the README, but nothing calls it yet.
 
 ---
 
 ## 3. MongoDB collections
 
-The mock keeps five Maps. In Mongo they become three collections plus one new one for history. Membership
-and holdings live **inside the project document**, so there is one source of truth and no second table to
-keep in sync.
+The mock uses five in-memory Maps. In Mongo those become three collections, plus a new `transactions`
+collection for history. Membership and holdings are stored inside each project document, so there's only one
+place to update and nothing to keep in sync.
 
 | Mock table (`mock-db.ts`) | Mongo collection | Document shape |
 |---|---|---|
@@ -105,32 +113,35 @@ keep in sync.
 | `hardware` | `hardwareSets` | `{ _id: "HWSet1", capacity: 100, available: 70 }` |
 | *(new)* | `transactions` | see section 6.3 |
 
-Why it's laid out this way:
+Why we set it up this way:
 
-- **Using the ID as `_id`** makes "already taken" checks free. Inserting a duplicate raises
-  `pymongo.errors.DuplicateKeyError`, which maps straight to 409 with no read-then-write race
-  (this is the "unique indexing" note in the PDF).
-- **`members` as an array** lets `/join_project` add a user with one atomic update:
+- Using the ID as `_id` means we get duplicate checks for free. Inserting an ID that already exists raises
+  `pymongo.errors.DuplicateKeyError`, and we return that as a 409. We never have to read first to see if the
+  ID is taken, so there's no race between the read and the write. (This is what the "unique indexing" note in
+  the PDF is about.)
+- With `members` stored as an array, `/join_project` is one atomic update:
   `update_one({_id: pid, members: {$ne: uid}}, {$push: {members: uid}})`.
-  - `matched_count == 0` → read again to tell "no such project" (404) from "already a member" (409).
-  - Add an index on `members` so `/get_user_projects_list` (`find({members: uid})`) stays fast.
-- **`holdings` on the project** means "what this project has checked out" is one read, which is
-  what section 6.1 needs.
-- **Invariant:** for each set, `capacity == available + sum of every project's holdings for that set`.
-  The mock seed data already follows this (see the comment in `mock-db.ts`). A pytest should check it
-  after a mixed run of check-outs and check-ins.
+  If `matched_count == 0`, read the project again to tell whether it doesn't exist (404) or the user was
+  already a member (409). We should also index `members`, since `/get_user_projects_list` runs
+  `find({members: uid})`.
+- Keeping `holdings` on the project means we can get everything a project has checked out in one read.
+  Section 6.1 depends on that.
+
+One rule always has to hold: for each set, `capacity == available + sum of every project's holdings for that
+set`. The mock's seed data already follows it (there's a comment about it in `mock-db.ts`). We should write a
+pytest that checks it after a mix of check-outs and check-ins.
 
 ---
 
 ## 4. Password hashing flow
 
-Passwords are hashed with **bcrypt** on the server only. The browser sends the plaintext password over
-HTTPS, and the server never stores it or logs it.
+Only the server hashes passwords, using bcrypt. The browser sends the plaintext password over HTTPS, and the
+server never stores or logs it.
 
-> **Correction to `api_calls.pdf`:** the PDF says to "hash the input password and compare it to the
-> database hash". That doesn't work with bcrypt, because every hash has its own random salt, so hashing the
-> same password twice gives different results. Use `bcrypt.checkpw(input, stored_hash)` instead. It reads
-> the salt out of the stored hash and does the comparison.
+> Correction to `api_calls.pdf`: the PDF says to "hash the input password and compare it to the database
+> hash". That won't work with bcrypt. Every hash gets its own random salt, so hashing the same password twice
+> gives two different results. Use `bcrypt.checkpw(input, stored_hash)` instead. It pulls the salt out of the
+> stored hash and does the comparison for you.
 
 ### `/add_user` (sign up)
 
@@ -160,23 +171,24 @@ flowchart TD
   E -- true --> G[200 userID]
 ```
 
-Rules:
+A few rules for both routes:
 
-- **One message for both failures.** An unknown user and a wrong password both return the same 401
-  message, so nobody can use the login form to find out which userIDs exist.
-- **Store the hash as-is.** Keep `passwordHash` as the bytes bcrypt returns. Don't decode, re-encode or
-  trim it.
-- **Don't trim passwords.** The frontend doesn't, and changing that later would lock out existing users.
-- **Keep the mock in plaintext.** The mock stores plaintext on purpose (dev only, flagged in
-  `mock-db.ts`). Don't copy that into Flask.
+- An unknown user and a wrong password get the same 401 message. Otherwise someone could use the login form
+  to find out which userIDs exist.
+- Store `passwordHash` as the exact bytes bcrypt returns. Don't decode it, re-encode it, or trim it.
+- Don't trim passwords either. The frontend doesn't, and if we started doing it later, existing users
+  wouldn't be able to log in.
+- The mock stores plaintext passwords on purpose (it's dev-only, and `mock-db.ts` says so). Don't carry that
+  over to Flask.
 
 ---
 
 ## 5. Accurate check-out / check-in
 
-The mock is single-threaded, so `if qty > available` followed by `available -= qty` is safe there. In
-Flask with several users, reading the value, checking it in Python, then writing it back is a race: two
-users can both see 10 available and both take 10. The fix is to put the check **inside** the update.
+In the mock, `if qty > available` followed by `available -= qty` is fine, because the mock is
+single-threaded. In Flask with multiple users, reading the value, checking it in Python, and then writing it
+back is a race condition: two users could both see 10 available and both take 10. To avoid that, the check
+has to happen inside the update itself.
 
 ### Check-out
 
@@ -203,27 +215,28 @@ sequenceDiagram
 
 ### Check-in
 
-This is the same flow in reverse. The condition goes on the **project**:
+Check-in is the same flow in reverse, except the condition goes on the project instead of the set:
 
 - Update: `update_one({_id: pid, "holdings.<hwSet>": {$gte: q}}, {$inc: {"holdings.<hwSet>": -q}})`
-- No match → 409 `Project <pid> only holds N units of <hwSet>`.
-- Then `$inc: {available: q}` on the set, capped by capacity, which follows from the invariant.
+- If nothing matches, return 409 `Project <pid> only holds N units of <hwSet>`.
+- Then `$inc: {available: q}` on the set. Because of the rule from section 3, this can't go over capacity.
 
 ### Keeping the two writes consistent
 
-Each operation changes two documents (the set and the project). Pick one of these:
+Every check-out or check-in changes two documents (the set and the project), so we need some way to keep
+them in sync. There are two options:
 
-1. **Mongo transaction (recommended if we deploy on Atlas).** Wrap both updates and the transaction insert
-   in `with client.start_session() as s: s.with_transaction(fn)`. Atlas clusters, including the free tier,
-   are replica sets, so they support this. A local standalone `mongod` doesn't, so dev would need
-   `--replSet` or a Docker replica-set image.
-2. **Ordered writes with undo (if transactions aren't available).** Do the conditional update first, since
-   that's the step that can fail. If the second write fails, undo the first with the opposite `$inc` and
-   return 500. This is simpler, but a crash between the two writes can break the invariant, so the
-   section 3 invariant test matters more here.
+1. Mongo transactions. This is the one to use if we deploy on Atlas. Wrap both updates and the history
+   insert in `with client.start_session() as s: s.with_transaction(fn)`. Atlas clusters are replica sets,
+   even on the free tier, so transactions work there. A plain local `mongod` doesn't support them, so for
+   dev we'd have to run it with `--replSet` or use a Docker replica-set image.
+2. Ordered writes with an undo, if transactions aren't available. Do the conditional update first, since
+   that's the one that can fail. If the second write fails, undo the first one with the opposite `$inc` and
+   return 500. This is simpler, but if the server crashes between the two writes, the counts won't add up
+   anymore. That makes the section 3 test even more important.
 
-Whichever we pick, the frontend behavior doesn't change. It already refetches `/get_hw_info` after any
-409 or network failure (`HardwareSetCard.tsx`).
+Either way, nothing changes on the frontend. `HardwareSetCard.tsx` already refetches `/get_hw_info` after any
+409 or network failure.
 
 ---
 
@@ -231,32 +244,31 @@ Whichever we pick, the frontend behavior doesn't change. It already refetches `/
 
 ### 6.1 Units checked out per project
 
-**Why:** the Hardware page can't show "Checked Out" yet, and the check-in limit is only enforced by the
-server (see the comments in `HardwareSetCard.tsx`).
-
-**Proposal:** extend the existing routes instead of adding a new one.
+The Hardware page can't show a "Checked Out" number yet, and right now only the server enforces the check-in
+limit (see the comments in `HardwareSetCard.tsx`). Instead of adding a new route for this, we can extend the
+existing ones:
 
 | Route | Change |
 |---|---|
 | `GET /get_hw_info?name=&projectID=` | `projectID` is optional. When given, also return `checkedOut: projects[pid].holdings[name] ?? 0` |
 | `POST /check_out`, `POST /check_in` | Response also includes `checkedOut` for the request's project |
 
-Optionally, add `GET /get_project_hardware?projectID=` → `{ holdings: { HWSet1: 20, HWSet2: 0 } }` if a
-Projects-page summary is wanted later.
+If we want a summary on the Projects page later, we could also add
+`GET /get_project_hardware?projectID=` → `{ holdings: { HWSet1: 20, HWSet2: 0 } }`. That one's optional.
 
-### 6.2 Project members (already wired, backend needed)
+### 6.2 Project members (frontend done, backend needed)
 
-`/get_project_info` already returns `members` and the Hardware page (`ResourcesView.tsx`) shows them. The
-backend just returns `projects[pid].members`. It needs no new route.
+`/get_project_info` already returns `members`, and the Hardware page (`ResourcesView.tsx`) already shows
+them. The backend only has to return `projects[pid].members`, so no new route is needed.
 
 ### 6.3 User and project history
 
-**Why:** a record of who checked out or returned what, and when, that lasts across sessions.
+We want a record of who checked out or returned what, and when, that sticks around between sessions.
 
-To record *who* did each operation, add **`userID` to the `/check_out` and `/check_in` request bodies**
-(the frontend knows it from sign-in).
+To know who did each operation, `/check_out` and `/check_in` need a `userID` in the request body. The
+frontend already has it from sign-in.
 
-`transactions` document:
+A `transactions` document would look like this:
 
 ```json
 {
@@ -278,10 +290,11 @@ To record *who* did each operation, add **`userID` to the `/check_out` and `/che
 
 Implementation notes:
 
-- **Indexes:** add `{projectID: 1, at: -1}` and `{userID: 1, at: -1}`. Query with `.sort("at", -1).limit(n)`.
-- **Write path:** insert the transaction in the same transaction or ordered write as section 5. If it isn't
-  written, the history is wrong.
-- **Date format:** send `at` as ISO-8601 (`datetime.isoformat()`). The frontend formats it for display.
+- Add indexes on `{projectID: 1, at: -1}` and `{userID: 1, at: -1}`, and query with
+  `.sort("at", -1).limit(n)`.
+- Insert the transaction as part of the same transaction (or ordered write) from section 5. If that insert
+  gets skipped, the history won't match what actually happened.
+- Send `at` as an ISO-8601 string (`datetime.isoformat()`). The frontend formats it for display.
 
 ### 6.4 Summary of new and changed routes
 
@@ -331,41 +344,44 @@ getUserHistory: (userID: string) =>
   request<{ transactions: Transaction[] }>('/get_user_history' + q({ userID })),
 ```
 
-### Callers that have to change with it
+### Other files that change with it
 
-- **`HardwareSetCard.tsx`:**
+- `HardwareSetCard.tsx`:
   - Pass `userID` to `checkOut`/`checkIn`.
-  - Use `hwSet.checkedOut` as the check-in `max` in `validateQuantity`, replacing `Number.MAX_SAFE_INTEGER`.
+  - Use `hwSet.checkedOut` as the check-in `max` in `validateQuantity` instead of `Number.MAX_SAFE_INTEGER`.
   - Uncomment the Checked Out stat and switch to `hw-stats-3`.
-- **`ResourcesView.tsx`:**
+- `ResourcesView.tsx`:
   - Take a `userID` prop from `App.tsx`.
   - Call `getHardwareInfo(n, projectID)` so `checkedOut` comes back.
-  - Add a history panel built from `getProjectHistory`.
-- **`App.tsx`:** pass `userID` down to `ResourcesView`.
-- **Mock (`mock-api.ts`, `mock-db.ts`):**
-  - Add the same fields and routes, with a `transactions` array in `MockDB`, so `npm run dev` and the
-    tests keep working without a backend.
+  - Add a history panel that uses `getProjectHistory`.
+- `App.tsx`: pass `userID` down to `ResourcesView`.
+- The mock (`mock-api.ts`, `mock-db.ts`):
+  - Add the same fields and routes, with a `transactions` array in `MockDB`, so `npm run dev` and the tests
+    keep working without a backend.
   - Update `mock-api.test.ts` and `src/api.test.ts` for the new arguments.
 
 ### Config files to add
 
-- **`haas-app/.env.example`** (checked in): `VITE_API_URL=http://localhost:5000`. The real `.env` stays
-  gitignored.
-- **Cross-origin calls.** In dev the Vite server (5173) and Flask (5000) run on different ports, so the
-  browser blocks cross-origin calls unless one of these is in place:
-  1. **Vite `server.proxy` (preferred, no new dependency).** Proxy the API routes to Flask in
-     `vite.config.ts` and leave `VITE_API_URL` unset. The mock would then need its own switch (for
-     example `VITE_USE_MOCK=1`) instead of keying off `VITE_API_URL`.
-  2. **CORS headers on Flask.** Set `Access-Control-Allow-Origin` to the frontend origin in an
-     `@app.after_request` hook, and answer `OPTIONS` preflights.
-  - **In production,** serve the built frontend and the API from the same origin when possible, so
-    neither is needed.
+We need a `haas-app/.env.example` (checked in) with `VITE_API_URL=http://localhost:5000`. The real `.env`
+stays gitignored.
+
+In dev, Vite runs on port 5173 and Flask runs on 5000. Those count as different origins, so the browser will
+block the API calls unless we do one of these:
+
+1. Use Vite's `server.proxy` to forward the API routes to Flask. This is the better option since it doesn't
+   add a dependency. Set it up in `vite.config.ts` and leave `VITE_API_URL` unset. The catch is that the mock
+   currently turns on whenever `VITE_API_URL` is unset, so it would need its own switch (something like
+   `VITE_USE_MOCK=1`).
+2. Add CORS headers in Flask. Set `Access-Control-Allow-Origin` to the frontend's origin in an
+   `@app.after_request` hook, and handle `OPTIONS` preflight requests.
+
+In production, if we can serve the built frontend and the API from the same origin, we won't need either one.
 
 ---
 
 ## 8. Backend files to create
 
-A suggested layout. The backend team owns the final structure.
+This is only a suggested layout. The backend team gets the final say on structure.
 
 ```
 backend/
@@ -381,33 +397,34 @@ backend/
   .env.example      MONGO_URI=..., FLASK_ENV=development
 ```
 
-Things to get right:
+A few things to get right:
 
-- **One `MongoClient` per process,** created once in `db.py`. Don't create one per request.
-- **Read secrets from the environment.** `MONGO_URI` and any secret come from env vars, and `.env` stays
-  out of git (CLAUDE.md).
-- **Map Mongo errors to statuses:** `DuplicateKeyError` → 409, a missing document → 404, and anything else
-  → 500 with a generic message. Log details on the server, but never log the request body on auth routes.
+- Create one `MongoClient` per process, in `db.py`, instead of a new one for every request.
+- `MONGO_URI` and any other secrets come from environment variables, and `.env` stays out of git (see
+  CLAUDE.md).
+- Map Mongo errors to status codes: `DuplicateKeyError` → 409, a missing document → 404, and anything else →
+  500 with a generic message. Log the details on the server, but never log the request body on the auth
+  routes.
 
 ---
 
 ## 9. Deferred (not in this iteration)
 
-- **Authorization.** Right now any signed-in user can call `/check_out` for any project ID. Later the
-  backend should check that `userID ∈ projects[pid].members` before changing holdings (403 otherwise).
-  The frontend can't enforce this, because the request can be sent without the UI.
-- **Sessions and tokens.** `userID` lives in React state and is sent in each request. A real session
-  (signed cookie or token) would let the server get `userID` itself instead of trusting the body. Until
-  then, nothing proves the `userID` in a request belongs to the signed-in user.
-- **Persisted UI history.** The routes in 6.3 store history. A page to show it is separate work.
+- Authorization. Right now any signed-in user can call `/check_out` for any project ID. Eventually the backend
+  should check that `userID ∈ projects[pid].members` before changing holdings, and return 403 if it isn't.
+  This has to happen on the server, because anyone can send the request without going through the UI.
+- Sessions and tokens. `userID` is kept in React state and sent with each request. With a real session (a
+  signed cookie or a token), the server could work out the `userID` on its own instead of trusting the request
+  body. Until then, nothing proves that the `userID` in a request actually belongs to whoever is signed in.
+- A page for history. The routes in 6.3 store the history, but building a page to show it is separate work.
 
 ---
 
 ## 10. Open questions
 
-- **Backend stack.** The README "Architecture" table still says Node.js + Java, while CLAUDE.md and the
-  team table say Python Flask. This doc assumes Flask. Update the README once the team confirms.
-- **Validation lengths.** `MIN_USERID_LENGTH`, `MIN_PASSWORD_LENGTH` and `MIN_PROJECT_ID_LENGTH` in
-  `validation.ts` are still 0. The frontend and backend have to agree on the real values.
-- **Dev database.** Will dev run against Atlas (transactions available) or a local `mongod` (needs
-  replica-set mode for section 5, option 1)?
+- Backend stack: the README's "Toolchain and Approach" table still says Node.js + Java, but CLAUDE.md and the
+  team table say Python Flask. This doc assumes Flask. We should update the README once the team confirms.
+- Validation lengths: `MIN_USERID_LENGTH`, `MIN_PASSWORD_LENGTH`, and `MIN_PROJECT_ID_LENGTH` in
+  `validation.ts` are still 0. The frontend and backend need to agree on the real values.
+- Dev database: will dev run against Atlas (which has transactions) or a local `mongod` (which would need
+  replica-set mode for option 1 in section 5)?

@@ -1,17 +1,23 @@
 # HaaS Frontend Style Guide
 
-Keeps fonts, color, and component styling consistent across the React client. The source of truth is `haas-app/src/index.css`; if this guide and the CSS disagree, fix whichever is wrong in the same PR.
+This guide is here so the React client stays consistent: same fonts, same colors, same component styles
+everywhere. The actual source of truth is `haas-app/src/index.css`. If you notice this guide and the CSS
+disagree, fix whichever one is wrong in the same PR.
 
 ## Principles
 
-- **Dark theme only.** Near-black backgrounds, layered surfaces, burnt-orange accents.
-- **No hard-coded colors, sizes, or fonts in components.** Use the CSS variables and shared classes below. Inline `style` is for one-off layout (margins, grid), never for color or typography.
-- **No hard-coded page data.** Anything displayed comes from the API (R2-2). Placeholder or empty states are fine; fake rows are not.
-- **Reuse before adding.** Check `index.css` for an existing class before writing a new one. New shared styles go in `index.css`, not in per-component files.
+- The app only has a dark theme: near-black backgrounds, layered surfaces, and burnt-orange accents.
+- Don't hard-code colors, sizes, or fonts in components. Use the CSS variables and shared classes listed
+  below. Inline `style` is fine for one-off layout like margins or grid placement, but never for color or
+  typography.
+- Don't hard-code page data either. Everything on screen has to come from the API (this is graded under
+  R2-2). Placeholder text and empty states are fine, but fake rows are not.
+- Check `index.css` for an existing class before you write a new one. New shared styles go in `index.css`,
+  not in per-component files.
 
 ## Fonts
 
-Loaded from Google Fonts in `index.html`. Do not add other families.
+All three fonts are loaded from Google Fonts in `index.html`. Please don't add any others.
 
 | Role | Family | Use for |
 | --- | --- | --- |
@@ -30,11 +36,11 @@ Loaded from Google Fonts in `index.html`. Do not add other families.
 | `.form-label` | JetBrains Mono | 11px, uppercase | 1.5px |
 | Buttons | Rubik 600 | 14px | 0.5px |
 
-Titles are written in UPPERCASE in the markup (`PROJECTS`, `CREATE PROJECT`).
+Titles are typed in uppercase directly in the markup (`PROJECTS`, `CREATE PROJECT`).
 
 ## Color tokens
 
-Defined on `:root`. Always reference with `var(--name)`.
+These are defined on `:root`. Always use them through `var(--name)`.
 
 | Token | Value | Use |
 | --- | --- | --- |
@@ -53,29 +59,36 @@ Defined on `:root`. Always reference with `var(--name)`.
 | `--green` | `#3ecf6e` | Success, availability, online status |
 | `--red` | `#e85050` | Errors |
 
-Rules:
-- Orange means "interactive or selected." Green means "ok / available." Red means "error." Don't repurpose them.
-- Never use pure white or black for text or backgrounds (button text on orange is the one `#fff` exception).
-- Add a new token to `:root` rather than a raw hex in a rule.
+How to use them:
+- Orange means something is interactive or selected, green means OK or available, and red means an error.
+  Don't use them for anything else.
+- Don't use pure white or pure black for text or backgrounds. The one exception is button text on orange,
+  which is `#fff`.
+- If you need a new color, add a token to `:root` instead of putting a raw hex value in a rule.
 
 ## Shape, spacing, depth
 
-- Radius: `--radius` 10px (cards), `--radius-lg` 16px (form panels, modals), 7px (inputs, buttons), 8px (message blocks).
-- Spacing is on a 2/4px grid; common values are 6, 8, 14, 16, 20, 24, 32px. Page padding is `28px 32px` (`20px 16px` under 800px).
-- Borders are 1px `--border`. Orange borders only for hover, focus, and selected states.
-- Shadows are rare: the header glow, the modal (`--shadow`), and button hover glow. Don't add drop shadows to cards.
-- Motion is subtle: 0.15–0.2s ease transitions on color/border/transform; the status dot pulses. No page-load animations beyond that.
+- Corner radius: `--radius` (10px) for cards, `--radius-lg` (16px) for form panels and modals, 7px for inputs
+  and buttons, and 8px for message blocks.
+- Spacing sticks to a 2/4px grid. The values we use most are 6, 8, 14, 16, 20, 24, and 32px. Page padding is
+  `28px 32px`, or `20px 16px` under 800px.
+- Borders are 1px `--border`. Orange borders are only for hover, focus, and selected states.
+- We barely use shadows: just the header glow, the modal (`--shadow`), and the glow on button hover. Don't put
+  drop shadows on cards.
+- Keep animation subtle. Color, border, and transform changes use 0.15–0.2s ease transitions, and the status
+  dot pulses. Other than that, no page-load animations.
 
 ## Layout
 
 - App shell: `.app` > `.header` (64px, orange bottom border) > `.section-tabs` > `.content`.
-- Sign-in uses the centered `.loading-screen` with `.loading-title`.
-- Two-column pages use `.two-col` (content + 360px side column) and collapse to one column under 800px.
-- Card grids use `auto-fill` with `minmax` (240px for project cards, 280–320px for hardware).
+- The sign-in screen uses the centered `.loading-screen` with `.loading-title`.
+- Two-column pages use `.two-col` (content plus a 360px side column), which collapses to one column under
+  800px.
+- Card grids use `auto-fill` with `minmax`: 240px for project cards, and 280–320px for hardware.
 
 ## Component patterns
 
-Use these classes instead of restyling.
+Use these classes instead of restyling things from scratch.
 
 | Pattern | Markup / classes |
 | --- | --- |
@@ -96,22 +109,30 @@ Use these classes instead of restyling.
 
 ## Behavior and copy
 
-- **Every async view handles three states:** loading (`Loading…`), error (`.msg-error` with the server's message), and empty (`.no-path`).
-- Disable buttons while a request is in flight and when input is invalid (empty ID, non-positive integer quantity).
-- Button labels are short verbs in Title Case: `Sign In`, `Create Project`, `Check Out`. In-flight labels use an ellipsis: `Signing in…`.
-- Error text comes from the API response when available; don't invent messages that hide the backend's reason.
-- Every input has a `<label htmlFor>`; icon glyphs (`◉ ◈ ⇢ ✓ ✕`) are decorative and never the only signal.
-- Passwords use `type="password"` and proper `autoComplete`; never log or display them.
+- Every view that loads data has to handle three states: loading (`Loading…`), error (`.msg-error` with the
+  server's message), and empty (`.no-path`).
+- Disable buttons while a request is in flight, and when the input is invalid (an empty ID, or a quantity
+  that isn't a positive integer).
+- Button labels are short verbs in Title Case: `Sign In`, `Create Project`, `Check Out`. While a request is
+  running, the label gets an ellipsis: `Signing in…`.
+- If the API sends back an error message, show that. Don't swap in our own text that hides what the backend
+  actually said.
+- Every input needs a `<label htmlFor>`. The icon glyphs (`◉ ◈ ⇢ ✓ ✕`) are only decoration, so they should
+  never be the only thing telling the user something.
+- Password fields use `type="password"` and the right `autoComplete` value. Never log or display a password.
 
 ## Code conventions
 
-- Components are TypeScript function components in `src/components/`, one per file, default export, `PascalCase.tsx`.
-- Props typed with an `interface Props`; use `import type` for types (`verbatimModuleSyntax` is on).
-- All network calls go through `src/api.ts`; components never call `fetch` directly.
-- Keep `tsc -b` and `npm run lint` clean before opening a PR.
+- Components are TypeScript function components in `src/components/`: one per file, default export, file
+  named `PascalCase.tsx`.
+- Type props with an `interface Props`, and use `import type` for type-only imports (`verbatimModuleSyntax`
+  is on).
+- All network calls go through `src/api.ts`. Components never call `fetch` directly.
+- Make sure `tsc -b` and `npm run lint` pass before you open a PR.
 
 ## Adding something new
 
-1. Look for an existing class or token that fits.
-2. If none does, add a token or class to `index.css` using existing tokens, and add a row to the tables above in the same PR.
-3. Check it at desktop width and under 800px.
+1. Look for an existing class or token that already does what you need.
+2. If there isn't one, add a token or class to `index.css` (using existing tokens), and add a row to the
+   tables above in the same PR.
+3. Check how it looks at desktop width and under 800px.
