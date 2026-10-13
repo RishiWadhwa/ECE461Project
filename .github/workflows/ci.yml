@@ -26,7 +26,7 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             files=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD)
           else
-            files="haas-app/ backend/"          # pushes to dev/main: check everything
+            files=$(printf 'haas-app/\nbackend/')   # pushes to dev/main: check everything (one folder per line)
           fi
           has() { echo "$files" | grep -qE "^($1|\.github/)" && echo true || echo false; }
           echo "frontend=$(has haas-app/)" >> "$GITHUB_OUTPUT"
@@ -43,7 +43,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: haas-app/.nvmrc
           cache: npm
           cache-dependency-path: haas-app/package-lock.json
       - run: npm ci
