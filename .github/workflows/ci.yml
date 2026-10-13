@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+# A new push to the same PR cancels the run that's still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.diff.outputs.frontend }}
+      # backend: ${{ steps.diff.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: diff
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            files=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD)
+          else
+            files="haas-app/ backend/"          # pushes to dev/main: check everything
+          fi
+          has() { echo "$files" | grep -qE "^($1|\.github/)" && echo true || echo false; }
+          echo "frontend=$(has haas-app/)" >> "$GITHUB_OUTPUT"
+          # echo "backend=$(has backend/)" >> "$GITHUB_OUTPUT"
+
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: haas-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: haas-app/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build      # tsc -b also enforces the @ts-expect-error checks in api.test.ts
+      - run: npm test
+
+  # backend:                    # added by the backend team when their code lands
+  #   needs: changes
+  #   if: needs.changes.outputs.backend == 'true'
+  #   runs-on: ubuntu-latest
+  #   services:
+  #     mongo:
+  #       image: mongo:7.0       # throwaway database, gone when the job ends
+  #       ports: ['27017:27017']
+  #   env:
+  #     MONGO_URI: mongodb://localhost:27017/haas_test
+  #   defaults:
+  #     run:
+  #       working-directory: backend
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-python@v5
+  #       with: { python-version: '3.12', cache: pip }
+  #     - run: pip install -r requirements.txt
+  #     - run: pytest
+
+  ci-ok:
+    if: always()
+    needs: [changes, frontend]  # add backend, integration here as they're added
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "A required job failed."; exit 1
+          fi
