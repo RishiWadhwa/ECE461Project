@@ -1,13 +1,9 @@
-// MVP: useEffect, Project, ProjectInfo, ApiError and useConnectionStatus are only used by the
-// commented-out My Projects list and Join flow below. Restore these imports with them.
-// import { useEffect, useState } from 'react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { api } from '../api.ts'
-// import type { Project, ProjectInfo } from '../api.ts'
-// import { ApiError, errorMessage } from '../errors.ts'
-import { errorMessage } from '../errors.ts'
-// import { useConnectionStatus } from '../connection.ts'
+import type { Project } from '../api.ts'
+import { ApiError, errorMessage } from '../errors.ts'
+import { useConnectionStatus } from '../connection.ts'
 import { validateProjectID } from '../validation.ts'
 
 interface Props {
@@ -18,61 +14,44 @@ interface Props {
 }
 
 export default function ProjectsView({ userID, onOpen }: Props) {
-  // MVP: the My Projects list is disabled. Users create a project or access one by ID, and the app
-  // does not remember which projects a user belongs to. Re-enable with the list markup below.
-  // const [projects, setProjects] = useState<Project[]>([])
-  // const [loading, setLoading] = useState(true)
-  // const [listError, setListError] = useState<string | null>(null)
-  // const [selected, setSelected] = useState<ProjectInfo | null>(null)
-  // const connection = useConnectionStatus()
+  // My Projects lists the projects the user created or is an authorized user of; clicking one opens its Hardware page.
+  const [projects, setProjects] = useState<Project[]>([])
+  const [loading, setLoading] = useState(true)
+  const [listError, setListError] = useState<string | null>(null)
+  const connection = useConnectionStatus()
 
   const [newID, setNewID] = useState('')
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
   const [createError, setCreateError] = useState<string | null>(null)
-  const [accessID, setAccessID] = useState('')
-  const [accessError, setAccessError] = useState<string | null>(null)
+  const [joinID, setJoinID] = useState('')
+  const [joinError, setJoinError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  // MVP: loads the My Projects list.
-  // const refresh = async () => {
-  //   try {
-  //     const res = await api.getUserProjects(userID)
-  //     setProjects(res.projects ?? [])
-  //     setListError(null)
-  //   } catch (err) {
-  //     setListError(errorMessage(err, 'Could not load projects'))
-  //   } finally {
-  //     setLoading(false)
-  //   }
-  // }
+  const refresh = async () => {
+    try {
+      const res = await api.getUserProjects(userID)
+      setProjects(res.projects ?? [])
+      setListError(null)
+    } catch (err) {
+      setListError(errorMessage(err, 'Could not load projects'))
+    } finally {
+      setLoading(false)
+    }
+  }
 
-  // MVP: loads on mount, and again when the server comes back after an outage.
-  // useEffect(() => {
-  //   if (connection === 'online') refresh()
-  //   // eslint-disable-next-line react-hooks/exhaustive-deps
-  // }, [userID, connection])
-
-  // MVP: members and details of the project the user is working under.
-  // useEffect(() => {
-  //   if (!selectedID || connection === 'offline') return
-  //   let cancelled = false
-  //   api.getProjectInfo(selectedID).then(
-  //     (info) => { if (!cancelled) setSelected(info) },
-  //     () => { if (!cancelled) setSelected(null) },
-  //   )
-  //   return () => {
-  //     cancelled = true
-  //   }
-  // }, [selectedID, connection])
+  // Loads on mount, and again when the server comes back after an outage.
+  useEffect(() => {
+    if (connection === 'online') refresh()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userID, connection])
 
   const run = async (action: () => Promise<unknown>, setError: (msg: string | null) => void, fallback: string) => {
     setBusy(true)
     setError(null)
     try {
       await action()
-      // MVP: no list to refresh.
-      // await refresh()
+      // No refresh needed: success leaves for the Hardware page, and coming back remounts and reloads the list.
     } catch (err) {
       setError(errorMessage(err, fallback))
     } finally {
@@ -97,37 +76,37 @@ export default function ProjectsView({ userID, onOpen }: Props) {
     }, setCreateError, 'Could not create project')
   }
 
-  // Access replaces Join for the MVP: it checks the ID rules, then that the project exists (a 404 shows its message),
-  // then opens its Hardware page without adding the user as a member.
-  const access = (e: FormEvent) => {
+  // Join links the user to the project as an authorized user, so it stays in My Projects, then opens its Hardware page.
+  // Unknown IDs get the API's 404.
+  const join = (e: FormEvent) => {
     e.preventDefault()
-    const projectID = accessID.trim()
+    const projectID = joinID.trim()
     run(async () => {
-      // Too-short or malformed IDs fail here without a request; well-formed unknown IDs get the API's 404.
-      validateProjectID(projectID)
-      const p = await api.getProjectInfo(projectID)
-      setAccessID('')
-      onOpen(p.projectID ?? projectID)
-    }, setAccessError, 'Could not access project')
+      try {
+        // Too-short or malformed IDs fail here without a request.
+        const p = await api.joinProject(userID, validateProjectID(projectID))
+        onOpen(p.projectID ?? projectID)
+      } catch (err) {
+        // Already a member (409): nothing to join, so redirect to that project's Hardware page.
+        if (err instanceof ApiError && err.isConflict()) {
+          onOpen(projectID)
+        } else {
+          throw err
+        }
+      }
+      setJoinID('')
+    }, setJoinError, 'Could not join project')
   }
 
-  // MVP: joining a project (permanent membership) is disabled.
+  // Alternative (unused): show the API's 409 "already part of this project" error instead of redirecting,
+  // so the user opens the project from My Projects. Swap it in for join above.
   // const join = (e: FormEvent) => {
   //   e.preventDefault()
   //   const projectID = joinID.trim()
   //   run(async () => {
-  //     try {
-  //       const p = await api.joinProject(userID, validateProjectID(projectID))
-  //       onSelect(p.projectID ?? projectID)
-  //     } catch (err) {
-  //       // Already a member: nothing to join, so just switch to that project.
-  //       if (err instanceof ApiError && err.isConflict() && projects.some((p) => p.projectID === projectID)) {
-  //         onSelect(projectID)
-  //       } else {
-  //         throw err
-  //       }
-  //     }
+  //     const p = await api.joinProject(userID, validateProjectID(projectID))
   //     setJoinID('')
+  //     onOpen(p.projectID ?? projectID)
   //   }, setJoinError, 'Could not join project')
   // }
 
@@ -135,10 +114,9 @@ export default function ProjectsView({ userID, onOpen }: Props) {
     <div>
       <div className="section-header">
         <div className="section-title">PROJECTS</div>
-        <div className="section-desc">Create a project, or access one by ID to check hardware in or out</div>
+        <div className="section-desc">Open one of your projects, create one, or join one by ID to check hardware in or out</div>
       </div>
 
-      {/* MVP: My Projects list and Working Under card are disabled. Restore inside a two-col layout.
       {listError && <div className="msg msg-error" style={{ marginBottom: 16 }}>✕ {listError}</div>}
 
       <div className="two-col">
@@ -151,11 +129,7 @@ export default function ProjectsView({ userID, onOpen }: Props) {
           ) : (
             <div className="pods-grid">
               {projects.map((p) => (
-                <button
-                  key={p.projectID}
-                  className={`pod-card project-card${selectedID === p.projectID ? ' selected' : ''}`}
-                  onClick={() => onSelect(p.projectID)}
-                >
+                <button key={p.projectID} className="pod-card project-card" onClick={() => onOpen(p.projectID)}>
                   <div className="pod-label">{p.name || p.projectID}</div>
                   <div className="pair-meta">ID · {p.projectID}</div>
                   <div className="project-desc">{p.description}</div>
@@ -163,54 +137,41 @@ export default function ProjectsView({ userID, onOpen }: Props) {
               ))}
             </div>
           )}
-
-          {selected && selected.projectID === selectedID && (
-            <div className="card" style={{ marginTop: 16 }}>
-              <div className="card-title">WORKING UNDER · {selected.name || selected.projectID}</div>
-              <div className="project-desc">{selected.description}</div>
-              <div className="social-section-label" style={{ marginTop: 12 }}>Members</div>
-              <div className="member-list">
-                {selected.members.map((m) => (
-                  <span key={m} className="member-chip">{m}</span>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
-      */}
 
-      <div className="pair-grid">
-        <form className="form-panel" onSubmit={create}>
-          <div className="card-title">CREATE PROJECT</div>
-          <div className="form-row">
-            <label className="form-label" htmlFor="p-name">Name</label>
-            <input id="p-name" className="form-input" value={newName} onChange={(e) => setNewName(e.target.value)} />
-          </div>
-          <div className="form-row">
-            <label className="form-label" htmlFor="p-id">Project ID</label>
-            <input id="p-id" className="form-input" value={newID} onChange={(e) => setNewID(e.target.value)} />
-          </div>
-          <div className="form-row">
-            <label className="form-label" htmlFor="p-desc">Description</label>
-            <input id="p-desc" className="form-input" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} />
-          </div>
-          {createError && <div className="msg msg-error" style={{ marginBottom: 12 }}>✕ {createError}</div>}
-          <button className="btn btn-block" disabled={busy || !newID.trim() || !newName.trim()}>
-            Create Project
-          </button>
-        </form>
+        <div className="form-stack">
+          <form className="form-panel" onSubmit={create}>
+            <div className="card-title">CREATE PROJECT</div>
+            <div className="form-row">
+              <label className="form-label" htmlFor="p-name">Name</label>
+              <input id="p-name" className="form-input" value={newName} onChange={(e) => setNewName(e.target.value)} />
+            </div>
+            <div className="form-row">
+              <label className="form-label" htmlFor="p-id">Project ID</label>
+              <input id="p-id" className="form-input" value={newID} onChange={(e) => setNewID(e.target.value)} />
+            </div>
+            <div className="form-row">
+              <label className="form-label" htmlFor="p-desc">Description</label>
+              <input id="p-desc" className="form-input" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} />
+            </div>
+            {createError && <div className="msg msg-error" style={{ marginBottom: 12 }}>✕ {createError}</div>}
+            <button className="btn btn-block" disabled={busy || !newID.trim() || !newName.trim()}>
+              Create Project
+            </button>
+          </form>
 
-        <form className="form-panel" onSubmit={access}>
-          <div className="card-title">ACCESS PROJECT</div>
-          <div className="form-row">
-            <label className="form-label" htmlFor="a-id">Project ID</label>
-            <input id="a-id" className="form-input" value={accessID} onChange={(e) => setAccessID(e.target.value)} />
-          </div>
-          {accessError && <div className="msg msg-error" style={{ marginBottom: 12 }}>✕ {accessError}</div>}
-          <button className="btn btn-block" disabled={busy || !accessID.trim()}>
-            Access Project
-          </button>
-        </form>
+          <form className="form-panel" onSubmit={join}>
+            <div className="card-title">JOIN PROJECT</div>
+            <div className="form-row">
+              <label className="form-label" htmlFor="j-id">Project ID</label>
+              <input id="j-id" className="form-input" value={joinID} onChange={(e) => setJoinID(e.target.value)} />
+            </div>
+            {joinError && <div className="msg msg-error" style={{ marginBottom: 12 }}>✕ {joinError}</div>}
+            <button className="btn btn-block" disabled={busy || !joinID.trim()}>
+              Join Project
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   )
