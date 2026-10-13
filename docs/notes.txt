@@ -243,3 +243,21 @@ T8, "Checked Out" display: the third column in HardwareSetCard and its .hw-stats
 
 Not done yet:
 - I haven't checked the T8 layout at desktop (1280px) or phone (375px) width. Its acceptance box in tasks/todo.md is still unchecked.
+
+------------------------------------------------------------------------------------------------------
+Changes Made 10/12
+
+Projects page (ProjectsView.tsx)
+- Access is now Join: the card, button, labels and state are all renamed.
+- Joining a new project makes the user an authorized user and opens its Hardware page. 
+    The project stays in My Projects from then on.
+- Already a member: the server's 409 is caught and the user goes straight to that project's Hardware page.
+- Unknown or malformed IDs still show an error.
+- Error version kept as dead code: right below join there's a commented-out version that shows the 
+    "You are already part of this project" error instead. To use it, swap it in for join.
+
+Hardware page (ResourcesView.tsx)
+- A "Working Under" card at the top shows the project's name, description and members, loaded with getProjectInfo. 
+    It loads again when the server comes back after an outage.
+
+The Flask backend still has no /join_project route, so Join only works against the mock API for now.
