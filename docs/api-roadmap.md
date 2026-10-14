@@ -2,7 +2,7 @@
 
 ## Our transition from the Mock API to Flask
 
-Last updated: 10/12/26
+Last updated: 10/13/26
 
 Right now the frontend runs against a mock server (`haas-app/mock-api.ts` + `haas-app/mock-db.ts`). This doc is
 our plan for switching it over to the real Flask + MongoDB backend: what has to change in
@@ -237,6 +237,31 @@ them in sync. There are two options:
 
 Either way, nothing changes on the frontend. `HardwareSetCard.tsx` already refetches `/get_hw_info` after any
 409 or network failure.
+
+### Why not a concurrent hash map?
+
+We have seriously considered queuing user requests and keeping history in a concurrent hash map (like Java's
+`ConcurrentHashMap`) instead of the plain `Map` in `session.ts`. Depending on implementation
+and our exact implementation it doesn't fit either goal:
+
+- **It can't keep history across sessions.** It lives in memory, so a page refresh, a sign-out or a server
+  restart wipes it. Cloud free tiers also put idle servers to sleep, which wipes it too. History has to be
+  stored in MongoDB (section 6.3).
+- **On the server, it only protects one process.** A concurrent hash map coordinates threads inside one
+  process. Flask in production usually runs several worker processes, and maybe more than one instance,
+  each with its own copy. Two users on different workers could both take the last 10 units. The
+  conditional update above runs inside MongoDB, so it's one step across every worker and server.
+- **In the browser it isn't needed.** JavaScript runs one thing at a time, so the plain `Map` in
+  `session.ts` is already safe. That queue only puts one tab's clicks in order, and it does that correctly.
+
+| Goal | Where it belongs | How |
+|---|---|---|
+| Ordering one user's clicks | Browser (`session.ts`) | Keep the `Map` queue as is |
+| Correct check-outs with many users | MongoDB | Conditional `find_one_and_update` with `available: {$gte: q}` (above) |
+| History across sessions | MongoDB `transactions` | One document per check-out or check-in (section 6.3) |
+
+A concurrent hash map is still fine as a server-side cache on top of this, but not as the only place
+requests or history are kept.
 
 ---
 

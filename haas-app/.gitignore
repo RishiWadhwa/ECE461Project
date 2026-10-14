@@ -22,7 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-*-lock.json
 
 # Claude and local files
 CLAUDE.md
