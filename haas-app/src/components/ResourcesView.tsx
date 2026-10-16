@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api.ts'
-import type { HardwareSet } from '../api.ts'
+import type { HardwareSet, ProjectInfo } from '../api.ts'
 import HardwareSetCard from './HardwareSetCard.tsx'
 import { errorMessage } from '../errors.ts'
 import { useConnectionStatus } from '../connection.ts'
@@ -14,7 +14,21 @@ export default function ResourcesView({ projectID, onBack }: Props) {
   const [sets, setSets] = useState<HardwareSet[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [project, setProject] = useState<ProjectInfo | null>(null)
   const connection = useConnectionStatus()
+
+  // Members and details of the project the user is working under.
+  useEffect(() => {
+    if (connection === 'offline') return
+    let cancelled = false
+    api.getProjectInfo(projectID).then(
+      (info) => { if (!cancelled) setProject(info) },
+      () => { if (!cancelled) setProject(null) },
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [projectID, connection])
 
   // Loads on mount, and again when the server comes back so stale numbers get replaced.
   useEffect(() => {
@@ -49,6 +63,19 @@ export default function ResourcesView({ projectID, onBack }: Props) {
         <div className="section-title">RESOURCES</div>
         <div className="section-desc">Working under project · {projectID}</div>
       </div>
+
+      {project && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-title">WORKING UNDER · {project.name || project.projectID}</div>
+          <div className="project-desc">{project.description}</div>
+          <div className="social-section-label" style={{ marginTop: 12 }}>Members</div>
+          <div className="member-list">
+            {project.members.map((m) => (
+              <span key={m} className="member-chip">{m}</span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {error && <div className="msg msg-error">✕ {error}</div>}
       {loading && <div className="none-label">Loading hardware…</div>}

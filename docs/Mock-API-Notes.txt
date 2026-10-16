@@ -1,23 +1,76 @@
-Logins (seeded in haas-app/mock-db.ts):
+The mock backend is two files. Both are dev-only and NOT final modules:
+- haas-app/mock-db.ts has the in-memory tables (users, projects, memberships, hardware, holdings).
+    createSeededDB() builds a fresh copy with the seed data. Everything resets whenever the dev server restarts.
+- haas-app/mock-api.ts has the route logic. handle(db, method, path, query, body) is a plain function so the
+    tests can call it directly, and mockApi() wraps it as a Vite plugin. The mock only runs when VITE_API_URL isn't set.
+
+Test logins (seeded in haas-app/mock-db.ts):
 testuser / test1234
 alice / alice1234
 bob / bob12345
 
-The add and subtract logic lives in three places:
+Seeded projects and members:
+demoproj1  (Demo Project)  - testuser          - holds 20 of HWSet1
+rflabproj  (RF Lab)        - testuser, bob     - holds 10 of HWSet1, 15 of HWSet2
+edgeproj42 (Edge Compute)  - alice, bob        - holds nothing
 
-- haas-app/src/components/HardwareSetCard.tsx (submit) is the UI. It picks api.checkOut or api.checkIn depending on which button you click.
-- haas-app/src/api.ts (api.checkOut / api.checkIn) is the client. checkOut and checkIn POST { projectID, hwSet, quantity } to /check_out and /check_in.
-- haas-app/mock-api.ts (the /check_out and /check_in case) is the mock server logic that does the math. It tracks how many
-    units each project holds (holdings table in mock-db.ts). Check-out subtracts from available and adds to the project;
-    check-in does the reverse.
+Seeded hardware:
+HWSet1 - capacity 100, available 70   (100 - 20 - 10)
+HWSet2 - capacity 100, available 85   (100 - 15)
+If you change the holdings, update hardware.available to match.
 
-The frontend does no arithmetic of its own. 
-It displays whatever the server returns. 
-When you build the real backend, the same rules will need to be implemented there. 
-The mock follows docs/api_calls.pdf: checking out more than is available, or checking in more than the project holds,
-returns 409. Joining a project you're already in returns 409; an unknown project ID returns 404.
+Input rules (from haas-app/src/validation.ts; the mock server enforces them too):
+- UserID: letters and digits only, at least 3 characters.
+- Password: at least 8 characters.
+- Project ID: letters and digits only, at least 8 characters. All the seeded IDs pass this.
+- Quantity: a whole number greater than 0, sent as a JSON number. Sending "5" (as a string), 0, or 1.5 gets a 400.
+Sign-in only checks that both fields are filled in. The full rules only apply when creating an account.
+api.ts only accepts values that have already gone through these validators, so passing an unvalidated value
+to an API call is a compile error, not something you find out about at runtime.
 
-To test the offline status light, run this in the browser console while `npm run dev` is up:
+The check-out/check-in math is spread across three files:
+
+- haas-app/src/components/HardwareSetCard.tsx (submit) is the UI. It validates the quantity, then calls api.checkOut
+    or api.checkIn depending on which button was clicked. Requests for the same project + hardware set go through
+    the queue in session.ts (enqueue, keyed "projectID:hwSet"), so they run one at a time, in order.
+- haas-app/src/api.ts (api.checkOut / api.checkIn) is the client. Both POST { projectID, hwSet, quantity } to /check_out and /check_in.
+- haas-app/mock-api.ts (the /check_out and /check_in case) is where the mock actually does the math. It keeps track of
+    how many units each project holds (the holdings table in mock-db.ts). Check-out subtracts from available and adds
+    to the project, and check-in does the opposite.
+
+The frontend doesn't do any of the arithmetic itself. It just shows whatever the server sends back,
+so the real backend will need to implement these same rules.
+
+Error codes (same as docs/api_calls.pdf):
+400 - input breaks the rules above (bad userID/password on sign-up, bad project ID, bad quantity)
+401 - wrong userID or password on login
+404 - unknown project ID or hardware set
+409 - userID already exists, project ID already taken, already a member of the project,
+      checking out more than is available, or checking in more than the project holds
+
+Tests (run `npm test` from haas-app/, or `npx vitest run mock-api.test.ts` for just the mock):
+haas-app/mock-api.test.ts - each test starts from a fresh createSeededDB().
+  Users:
+    - testuser / test1234 can log in; a wrong password gets a 401.
+    - Signing up as "alice" again gets a 409.
+    - Signing up with "ab", "bad user!", or the password "short" gets a 400, and that account can't log in.
+  Projects:
+    - alice creates "project9" and is listed as its only member.
+    - Project IDs "p9" (too short) and "bad-id-123" (has dashes) get a 400.
+    - Every seeded project ID passes validateProjectID.
+    - "missingproj" is a valid ID but doesn't exist, so get_project_info returns a 404.
+    - Creating "demoproj1" again gets a 409.
+    - Joining "missingproj" gets a 404, testuser joining demoproj1 gets a 409, and alice joining demoproj1 works.
+  Hardware:
+    - edgeproj42 checks out 5 of HWSet2 (85 -> 80), then checks them back in (80 -> 85).
+    - Two projects both see 70 of HWSet1. demoproj1 takes 60, then edgeproj42 asks for 60 and gets
+      409 "Only 10 units of HWSet1 available".
+    - demoproj1 checking in 21 of HWSet1 (it holds 20) or 1 of HWSet2 (it holds 0) gets a 409.
+    - Quantities 0, 1.5, and "5" get a 400.
+    - Non-API routes (like /src/main.tsx) return null so Vite serves them normally.
+Other suites in haas-app/src/: api.test.ts (client requests, errors, offline/timeout handling),
+validation.test.ts, math.test.ts (Integer/Double/Float), errors.test.ts, and session.test.ts (request queue).
+
+To test the offline status light, run this in the browser console while `npm run dev` is running:
     fetch('/__mock/outage?seconds=15', { method: 'POST' })
-API requests are dropped for 15s, the header light turns red, and the app recovers on its own afterwards.
-
+That drops API requests for 15 seconds. The header light should turn red, and the app recovers by itself afterwards.
