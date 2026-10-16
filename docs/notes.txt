@@ -1,0 +1,269 @@
+Error handling (haas-app/src/errors.ts) (Last Updated: 10/08/26)
+
+***errors.ts has all of the app's error types. It's set up a lot like a small Java exception hierarchy.
+
+**AppError extends the built-in Error and is the base class for the others, so a component can catch
+any error we expect with just one type.
+
+**ValidationError gets thrown in the browser before a request is ever sent, when the user's input breaks
+a rule (empty, too short, bad characters, or a quantity that's <= 0 or more than what's available).
+It holds a list of issues, where each one pairs a field (userID, password, projectID, quantity) with a
+message. Its main message joins all of them together, and messageFor(field) gives you the first message
+for a single input box.
+
+**ApiError gets thrown by api.ts when the Flask server rejects a request. It carries the HTTP status and
+has a few helpers: isAuth() (401/403), isNotFound() (404), isConflict() (409, e.g. someone else grabbed
+the units first, so refetch the hardware info and try again), and isServer() (5xx).
+
+**NetworkError gets thrown by api.ts when nothing comes back at all: the server is down, the network
+dropped, or the request took longer than REQUEST_TIMEOUT_MS (8 seconds). Unlike ApiError, it doesn't have
+an HTTP status. Nolan originally wrote it in api.ts. On 10/08/26 it got moved into errors.ts so all the
+error types are in one file, and api.ts and api.test.ts import it from there now.
+
+The rules for when to throw a ValidationError are in validation.ts, not errors.ts. In a component, call
+the validator and then the API inside the same try block. In the catch, pass the error to
+errorMessage(err, "fallback text") to get the string to show the user. The backend runs every check
+again, so you still need to handle ApiError and NetworkError even if local validation passed.
+
+-------------------------------------------------------------------------------------------------------
+
+Validation (haas-app/src/validation.ts) (Last Updated: 10/08/26)
+
+***validation.ts has the input rules. Basically, errors.ts defines what an error is, and validation.ts
+decides when to throw one.
+
+**The rule constants are at the top: MIN_USERID_LENGTH, MIN_PASSWORD_LENGTH, MIN_PROJECT_ID_LENGTH, and
+ALLOWED_CHARS (letters and digits only, used for userIDs and project IDs). The lengths are 0 for now as
+placeholders until we settle on real values with the backend team, since both sides have to use the same rules.
+
+**The private check functions (checkRequired, checkUserID, checkPassword, checkProjectID, checkQuantity)
+each return the message for the first rule that's broken, or null if nothing is. They don't throw.
+The others all call checkRequired first, which gives the "<label> is required!" message, so every form
+uses the same wording.
+
+**The exported validators are what components actually call. Each one throws a ValidationError if
+anything fails:
+- validateCreds(userID, password, mode): "signIn" mode only checks that both fields are filled in (the
+  server decides if they're right, and this way older accounts still work if we make the rules stricter
+  later). "signUp" mode applies all the rules. Both fields get checked every time, so the user sees all
+  the problems at once instead of one at a time.
+- validateProjectID(projectID): for the Create and Join project forms.
+- validateQuantity(value, max): for check-out, max is how many units of the set are available. For
+  check-in, it's how many the project holds.
+
+**Tests: src/validation.test.ts covers sign-up and sign-in modes, project IDs, and quantities
+(npm test, all 39 tests passing). Once the real lengths are decided, we need to add min-length tests.
+
+Replies to Nolan's decisions list (below):
+- NetworkError: agreed, and it's done. It's in errors.ts now.
+- Project ID validator: done (validateProjectID), but ProjectsView doesn't call it yet.
+- validateCreds on the forms: the "signIn"/"signUp" modes are ready, but SignInView and NewUserModal
+  don't use it yet.
+- Check-in limit: still waiting on the backend to return how many units a project holds. Until then,
+  HardwareSetCard passes Number.MAX_SAFE_INTEGER as the check-in max.
+
+-------------------------------------------------------------------------------------------------------
+
+Mock API & Testing (Vitest), including other changes assigned to me (Nolan) (Last Updated: 10/08/26)
+
+I finished all four of my Personal-ToDo items. All 34 Vitest tests pass, tsc -b and lint are clean, and
+I ran the dev server to try the mock routes and the simulated outage by hand.
+
+Here's what I went with from Abdon's errors.ts notes: AppError is the base class. ValidationError holds a
+list of field/message issues, and messageFor(field) gives the message for one input box. ApiError carries
+the HTTP status and has isAuth, isNotFound, isConflict, and isServer. Components should run the validator
+and then the API call in one try block, and use errorMessage(err, fallback) for the text to show. I used
+that pattern everywhere.
+
+1. Projects screen
+- Create and Join each show their own errors now, with clear messages for an ID that's already taken (409),
+  an ID that doesn't exist (404), and trying to join a project you're already in.
+- Picking a project shows a "Working under" card with its description and members, loaded from /get_project_info.
+
+2. Mock database (haas-app/mock-db.ts, new file)
+- I moved the in-memory tables into this file. The comment at the top says it's not a final module.
+- Seeded logins: testuser/test1234, alice/alice1234, bob/bob12345. There are 3 projects with members, and
+    HWSet1/HWSet2 start partly checked out so the demo has real numbers to show.
+- The mock now keeps track of how many units each project holds, and it returns the errors from
+    docs/api_calls.pdf: 409 for checking out more than what's available or checking in more than the
+    project holds, plus the project 404/409 cases. Before, it just clamped the numbers without telling anyone.
+
+3. Network error handling
+- Server down: api.ts now throws ApiError when the server rejects a request, and a new NetworkError when
+    nothing comes back at all (server down, network dropped, or over 8 seconds).
+- Status light: there's a new connection.ts that tracks whether the server can be reached. When it can't,
+    the header light turns red and a banner with a "Retry now" button shows up. While offline, it checks
+    every 5 seconds and recovers by itself, and then the projects and hardware screens reload.
+- Race conditions: the hardware card runs Abdon's validateQuantity before sending anything. If it gets a 409
+    or the request drops, it re-reads that set's availability and tells the user the numbers were refreshed.
+- Demo: run fetch('/__mock/outage?seconds=15', {method:'POST'}) in the browser console to cut off the API
+    for 15 seconds.
+
+4. Tests
+- I added Vitest, with test suites for errors.ts, validation.ts, api.ts (including going offline and
+    recovering), and the mock's rules.
+- npm test runs all of them. I also added a Commands section to CLAUDE.md with the test commands.
+- I updated docs/Mock-API-Notes.txt too, since it still described the old clamping behavior.
+
+Decisions for you or the team (ABDON, PLEASE READ THIS!):
+- Vitest vs. the stack rule: CLAUDE.md lists pytest as our test tool, and stack changes need TA sign-off.
+    Vitest only adds frontend tests and doesn't replace pytest, but it might be worth mentioning to the TA.
+- Abdon's files: I didn't touch errors.ts or validation.ts, which is why NetworkError is in api.ts for now.
+    It can move to errors.ts if Abdon's okay with that.
+- Left for Abdon, since the client-side math is his:
+  - Checking a check-in amount against what the project holds. The API doesn't return that number yet,
+    so for now only the server checks it.
+  - A project ID validator.
+  - Using validateCreds on the sign-in and new-user forms.
+- Asks for the backend: the frontend now expects /get_project_info to return members. Also, the offline
+    check calls /get_all_hw_names right now. A dedicated /health route would be better if the backend adds one.
+
+------------------------------------------------------------------------------------------------------------------
+Math Class Creation and New Test Cases for User Input (10/09/26):
+
+Both issues are fixed and the typecheck is clean. Lint didn't print a final result for me, so it should
+be rerun to make sure.
+
+The Math class: I added IntMath in a new file, src/math.ts. IntMath.parseInt(text) only accepts whole
+numbers written as plain digits, with an **optional minus sign** and no leading zeros. Anything else
+returns NaN, and the quantity check then shows "Quantity must be a whole number!". The minus sign is
+allowed on purpose, so that -3 still gets the "greater than 0" message instead of a generic one. I called
+it IntMath instead of Math so it doesn't shadow JavaScript's built-in Math.
+
+So in the end, only plain whole numbers make it through: no blanks, 1e0, negatives, or leading zeros.
+
+Blank input: HardwareSetCard.tsx now calls IntMath.parseInt(qty) instead of Number(qty). A blank field
+turns into NaN instead of 0, so validateQuantity rejects it.
+
+One message changed: in validation.ts, the error for a NaN quantity now says "Quantity must be a whole
+number!" instead of "Quantity must be a number!". NaN now covers things like 2.5 and 1e0 too, so the old
+wording didn't really fit anymore. I updated validation.test.ts to match.
+
+The new tests are in src/math.test.ts. After the first fix all 58 tests passed, and after adding the
+leading-zero rule all 60 pass.
+
+I also went through the frontend and the mock API looking for every place where text gets turned into a
+number. There's only one place where a user actually types a number, and it already goes through IntMath:
+
+- src/components/HardwareSetCard.tsx:19 - the Quantity box on each hardware card. It's the only number
+    input anywhere in the app, and it uses IntMath.parseInt(qty).
+- mock-api.ts:96 - the mock server reading quantity from the request body. This one doesn't use math.ts.
+    It does Number(b.quantity) and then checks that the result is a whole number above 0.
+- mock-api.ts:146 - the ?seconds= param on the dev-only /__mock/outage route that fakes a server outage.
+    It doesn't use math.ts either, but it isn't user input.
+
+I didn't add anything for decimals. No field in the app takes one, so math.ts only has IntMath. A decimal
+parser would just be code nobody uses yet.
+
+There's one small gap in the mock API. The page always sends quantity as an actual number, so a normal
+user can't run into this. But if something sends it as the string "1e0", Number() turns that into 1 and
+the mock accepts it. I can't reuse IntMath there, because IntMath parses typed text and the request body
+already has a number in it. The fix is a one-line check that quantity really is a number and not a string.
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Final Sprint for Frontend Changes (at least for the MVP) - (10/10/2026):
+
+Phase 1 - math.ts finished and Number() calls removed (all tests pass!):
+- math.ts: Integer.valueOf reads the digits itself now instead of calling Number(t). Double and Float are
+    written the same way as Integer. Both reject exponent notation (1e0), hex, Infinity, NaN, and trailing
+    junk. Float also rounds to 32-bit precision and rejects anything too big to fit in a float.
+- validation.ts: I took out the two checkQuantity checks that ran on an Integer object, since they were
+    rejecting every quantity. A new parseQuantity(text) keeps both of the original messages: "2.5" gets
+    "not a double!", and "1e0" and "abc" get "must be a whole number!". This is the only place Double is used.
+- HardwareSetCard.tsx: the broken IntMath import is gone. It uses parseQuantity now, then validateQuantity
+    with Integer.of(available).
+- api.ts: checkOut and checkIn take an Integer now. It still gets sent as a plain number in the request body.
+- mock-api.ts: both Number() calls go through Integer now. A quantity sent as the string "5" gets a 400,
+    the same way 2.5 already did.
+- Tests: new cases for Double, Float, and parseQuantity, plus one for the string "5" in the mock API.
+- Plan files: our decisions are written down in tasks/plan.md, and T1–T3 are checked off. The "review with
+    team" box in Checkpoint A is still open.
+
+Two other things:
+- Double and Float use parseFloat instead of Number(), but only after the strict format check passes.
+    parseFloat rounds decimals correctly, which hand-written parsing wouldn't. We can drop it too if the
+    team would rather not use it.
+- I tested the "1e0" and "2.5" error messages with unit tests and by typing them into the running app.
+
+*****
+
+Phase 2 - ResourcesView changed into a separate page
+How navigation works now: App.tsx doesn't have a tab bar or a router. It just shows a page based on state:
+- No one signed in: Sign In.
+- Signed in, no project open: Projects.
+- Project open: Hardware.
+
+The Hardware page (ResourcesView) has a "← Projects" button that closes the project and goes back.
+    Sign Out on either page clears both the user and the project. Since the Hardware page only shows up once
+    a project is open, I removed its "pick a project first" message and its view-only cards.
+
+Projects page (ProjectsView): only the Create Project and Access Project forms show now, side by side.
+    They use the existing pair-grid layout and stack on narrow screens. The My Projects list, the Working
+    Under card, the list refresh, and the Join call are all commented out (not deleted), each with an
+    // MVP: note. Same goes for the imports they need. Create Project and Access Project both go straight
+    to the Hardware page now.
+
+**Change from the plan: Access Project doesn't run validateProjectID. That rule needs 8+ characters, but
+    seeded projects like demo1 and edge42 are shorter, so nobody would have been able to open them. It only
+    checks that the project exists, which matches Decision 5.
+
+Checked on the dev server:
+- get_project_info returns the project for demo1, and a 404 "Project not found" for an unknown ID.
+- Check-out still works.
+- An outage request with seconds=abc returns a 400 instead of crashing. (That was a Phase 1 change.)
+
+***
+
+Phase 3 - Hashtable Queue, Future Feature (Commented Out), and Updated Tests
+Project ID rules on Access:
+- The seeded IDs meet the 8-character rule now: demo1 → demoproj1, rf-lab → rflabproj, edge42 → edgeproj42.
+    rf-lab also broke the letters-and-digits rule. I updated every test that used the old IDs
+    (mock-api.test.ts, api.test.ts).
+- Access Project runs validateProjectID again. An ID that's too short shows "Project ID must be at least
+    8 characters" and never gets sent to the server. A valid-looking ID that doesn't exist gets "Project not
+    found" (404).
+- New tests: every seeded ID passes the rules, and missingproj passes the rules but gets a 404. The
+    too-short case (proj001) was already covered in validation.test.ts.
+
+T6, the request queue (session.ts): it's a Map keyed by projectID:hwSet.
+- Requests for the same hardware set run one at a time, in order.
+- If one request fails, the ones after it still go through.
+- A key gets removed as soon as its requests finish.
+- Sign Out calls clear(). Anything still waiting gets cancelled instead of being sent after the user has
+    already left, and nothing stays in memory. Requests that were already sent still finish.
+- Five new tests cover ordering, separate keys, failures, cleanup, and clear().
+
+T7, component check: SignInView, NewUserModal, and ConnectionBanner don't depend on anything that changed
+    this sprint. I ran this flow against the dev server with curl, and everything worked the way it should:
+- log in, create a project, check out
+- check in more than the project holds (gets a 409)
+- a 2-second outage, then recovery
+
+T8, "Checked Out" display: the third column in HardwareSetCard and its .hw-stats-3 style (smaller gap,
+    wraps on narrow screens) are both commented out and marked "Future feature". It reads
+    hwSet.checkedOut, which will come from the backend once that endpoint exists. I also left a note at
+    the check-in limit that the same field should replace Number.MAX_SAFE_INTEGER there. As long as it
+    stays commented out, the page looks the same as before.
+
+Still to do:
+- I haven't checked the T8 layout at desktop (1280px) or phone (375px) width yet. Its box in
+    tasks/todo.md is still unchecked.
+
+------------------------------------------------------------------------------------------------------
+Changes Made 10/12
+
+Projects page (ProjectsView.tsx)
+- Access is now Join. The card, button, labels, and state are all renamed.
+- Joining a new project makes the user an authorized user and opens its Hardware page. After that, the
+    project stays in their My Projects list.
+- If they're already a member, the server's 409 gets caught and they go straight to that project's
+    Hardware page.
+- Unknown or badly formatted IDs still show an error.
+- The error version is still there as dead code: right below join, there's a commented-out version that
+    shows the "You are already part of this project" error instead. To use it, swap it in for join.
+
+Hardware page (ResourcesView.tsx)
+- There's a "Working Under" card at the top that shows the project's name, description, and members
+    (loaded with getProjectInfo). It reloads when the server comes back after an outage.
+
+The Flask backend doesn't have a /join_project route yet, so Join only works with the mock API for now.

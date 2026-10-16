@@ -1,0 +1,11 @@
+# This will be implemented at a later time once we have all three branches merged on dev.
+# Until then it only runs when started by hand from the Actions tab, so it never runs on a push.
+name: Deploy
+
+on: workflow_dispatch
+
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Deployment is not configured yet (see RS-04 in the README)."

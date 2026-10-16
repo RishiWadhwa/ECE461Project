@@ -1,10 +1,10 @@
 # ECE 461 HaaS Proof of Concept
 
-Hardware-as-a-Service (HaaS) web application inspired by the University of Utah [POWDER](https://powderwireless.net/) program. Users create accounts and projects, view hardware capacity and availability, and check out / check in units from **HWSet1** and **HWSet2**.
+A Hardware-as-a-Service (HaaS) web app, based on the University of Utah's [POWDER](https://powderwireless.net/) program. Users can create accounts and projects, see how much hardware there is and how much is available, and check units in and out of **HWSet1** and **HWSet2**.
 
-This repository is the single deliverable repo for all project phases.
+We're using this one repo for every phase of the project.
 
-Full project plan, architecture, and backlog: see the **[Wiki](../../wiki)**.
+The full project plan, architecture, and backlog are on the **[Wiki](../../wiki)**.
 
 ---
 
@@ -25,30 +25,30 @@ Full project plan, architecture, and backlog: see the **[Wiki](../../wiki)**.
 
 | Name | Role | GitHub |
 | --- | --- | --- |
-| Tyler Tekin | Backend (Java/Python) | [TylerTekin](https://github.com/tyler-at) |
-| Joseph Gyomber | Backend (Java/Python) | [JGyomber](https://github.com/jgyomber) |
-| May He | Backend (Node.js) | [Maaay551](https://github.com/maaay551) |
+| Tyler Tekin | Backend (Python Flask) | [TylerTekin](https://github.com/tyler-at) |
+| Joseph Gyomber | Backend (Python Flask) | [JGyomber](https://github.com/jgyomber) |
+| May He | Backend (Python Flask) | [Maaay551](https://github.com/maaay551) |
 | Nolan Arellano | Frontend (TypeScript) | [Cypher-Geist](https://github.com/cypher-geist) |
 | Abdon Morales | Frontend (TypeScript) | [AbdonMorales](https://github.com/abdonmorales) |
 | Rishi Wadhwa | Database / Cloud Deployment | [RishiWadhwa](https://github.com/RishiWadhwa) |
 
-Roles are a starting split. Work is assigned per sprint from the board.
+These roles are where we're starting. Actual tasks get assigned each sprint from the board.
 
 ### Implementation methodology
 
-**Agile Scrum**
+We're using **Agile Scrum**.
 
-- Work is planned as user stories, research spikes, and technical-debt items.
-- Each story is small enough for one person or a pair, written in three sentences or less, and mapped to a stakeholder need.
-- GitHub **Projects** holds user stories. GitHub **Issues** holds bugs and improvements (separate boards).
-- Changes land through pull requests into `dev`, then `main` for phase submissions.
+- We plan work as user stories, research spikes, and tech-debt items.
+- Each story should be small enough for one person (or a pair) to handle, take three sentences or fewer to describe, and map back to a stakeholder need.
+- User stories go on GitHub **Projects**, and bugs and improvements go on GitHub **Issues**. The two are kept on separate boards.
+- Changes go through pull requests into `dev`, and `dev` gets merged into `main` for each phase submission.
 
 ### Sprint cadence
 
 | Item | Plan |
 | --- | --- |
 | Sprint length | 1 week |
-| Sprint planning | Monday 3:00–4:00pm, Senior Design Room |
+| Sprint planning | Monday 4:00–5:00pm, ECE Lounge Room |
 | Standups | 3x / week, 10 min (Slack huddle or Zoom) |
 | Review + retro | Friday in lab / recitation |
 
@@ -70,9 +70,9 @@ Roles are a starting split. Work is assigned per sprint from the board.
 
 ### Branching
 
-- `main` — phase deliverables
-- `dev` — integration branch
-- `feature/<short-name>` — one story or spike per branch
+- `main`: phase deliverables
+- `dev`: integration branch
+- `feature/<short-name>`: one story or spike per branch
 
 ---
 
@@ -84,7 +84,7 @@ Roles are a starting split. Work is assigned per sprint from the board.
 | Backend | Node.js (JavaScript) and Java | Node.js for users and projects; Java for hardware checkout / check-in |
 | Database | MongoDB | Users, project details, and hardware sets |
 | API style | REST | `/login`, `/create_project`, `/check_out`, `/check_in`, and related routes |
-| Auth | Hashed passwords (bcrypt or equivalent) | SR3 / SN1 — no plaintext credentials |
+| Auth | Hashed passwords (bcrypt or equivalent) | SR3 / SN1: no plaintext credentials |
 | Testing | Jest (JS), JUnit (Java) | Login, projects, checkout math |
 | Hosting (Phase 2) | Cloud URL (Render, Railway, or Heroku) | TAs must open the app in a browser |
 | CI | GitHub Actions (Phase 2) | Lint + tests on PRs |
@@ -104,7 +104,7 @@ React client
 | Projects | `/create_project`, `/get_project_info` |
 | Hardware | `/get_all_hw_names`, `/get_hw_info`, `/check_out`, `/check_in`, `/create_hardware_set` |
 
-`hardwareSets` holds **HWSet1** and **HWSet2**. Each set has `capacity` (total units) and `available` (not currently checked out).
+`hardwareSets` holds **HWSet1** and **HWSet2**. Each set has a `capacity` (total units) and an `available` count (units that aren't checked out right now).
 
 ### Planned repo layout
 
@@ -125,8 +125,8 @@ README.md
 | SN1 | Secure user accounts and projects |
 | SN2 | View status of all hardware resources |
 | SN3 | Request available hardware |
-| SN4 | Checkout and manage resources |
-| SN5 | Check-in resources and refresh hardware status |
+| SN4 | Check out and manage resources |
+| SN5 | Check in resources and refresh hardware status |
 | SN6 | Deliver PoC on schedule, with room to scale |
 | SR1 | Delivered within schedule, with periodic stakeholder updates |
 | SR2 | Front-end for inputs and outputs |
@@ -138,11 +138,11 @@ README.md
 
 ## R1-2 Features and Work Items
 
-Create a GitHub Project named `HaaS User Stories` with columns **Backlog**, **Ready**, **In Progress**, **Review**, and **Done**. Add each item below as a card. Do not mix bugs onto this board.
+All of these go in a GitHub Project called `HaaS User Stories`, with the columns **Backlog**, **Ready**, **In Progress**, **Review**, and **Done**. Each item below is one card. Bugs stay off this board.
 
 Labels: `user-story`, `research`, `tech-debt`, `phase-1`, `phase-2`.
 
-### Feature 1 — User management
+### Feature 1: User management
 
 | ID | Type | Story | Points | Phase | Maps to |
 | --- | --- | --- | --- | --- | --- |
@@ -153,7 +153,7 @@ Labels: `user-story`, `research`, `tech-debt`, `phase-1`, `phase-2`.
 | US-05 | User story | As a signed-in user, I want to join an existing project by projectID so that I can share hardware with my group. | 3 | 2 | SN1, SR4 |
 | US-06 | User story | As a signed-in user, I want to see the projects I belong to so that I can pick one before checking out hardware. | 2 | 2 | SN1, SR2, SR5 |
 
-### Feature 2 — Resource management
+### Feature 2: Resource management
 
 | ID | Type | Story | Points | Phase | Maps to |
 | --- | --- | --- | --- | --- | --- |
@@ -164,7 +164,7 @@ Labels: `user-story`, `research`, `tech-debt`, `phase-1`, `phase-2`.
 | US-11 | User story | As a project member, I want checkout and check-in to persist in the database so that every user sees the same availability. | 5 | 2 | SN2, SN5, SR5 |
 | US-12 | User story | As a user of the app, I want all user, project, and hardware data loaded from APIs (no hard-coded page data) so that the UI reflects the live system. | 3 | 2 | SN0, SR2, SR5 |
 
-### Feature 3 — Platform and delivery
+### Feature 3: Platform and delivery
 
 | ID | Type | Story | Points | Phase | Maps to |
 | --- | --- | --- | --- | --- | --- |
@@ -191,7 +191,7 @@ Labels: `user-story`, `research`, `tech-debt`, `phase-1`, `phase-2`.
 
 ### Suggested Sprint 1 (Phase 1 close-out)
 
-**RS-01, RS-02, RS-03, TD-04**, plus creating the GitHub Project and cards for US-01–US-14.
+For Sprint 1, we plan to do **RS-01, RS-02, RS-03, and TD-04**, and to set up the GitHub Project with cards for US-01 through US-14.
 
 ---
 
@@ -220,4 +220,4 @@ Labels: `user-story`, `research`, `tech-debt`, `phase-1`, `phase-2`.
 
 ![High-level architecture sketch](docs/architecture/sketch.svg)
 
-The React client has the two panels from the spec (User Management, Resource Management). Node.js handles users and projects. Java handles HWSet1 / HWSet2 checkout and check-in. Both APIs use the same MongoDB instance (`users`, `projects`, `hardwareSets`).
+The React client has the two panels from the spec: User Management and Resource Management. The Node.js API handles users and projects, and the Java API handles checking HWSet1 and HWSet2 in and out. Both APIs talk to the same MongoDB instance (`users`, `projects`, `hardwareSets`).
