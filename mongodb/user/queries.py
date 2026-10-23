@@ -8,7 +8,7 @@ def insert_user(user_id: str, password_hash: str) -> dict:
     result = users().insert_one(
         {
             "userId": user_id,
-            "passwordHash": password_hash,
+            "passwordHash": password_hash, # encrypt this hash too
             "createdAt": datetime.now(timezone.utc),
         }
     )
