@@ -2,7 +2,7 @@
 
 ## Our transition from the Mock API to Flask
 
-Last updated: 10/14/26
+Last updated: 10/25/26
 
 Right now the frontend runs against a mock server (`haas-app/mock-api.ts` + `haas-app/mock-db.ts`). This doc is
 our plan for switching it over to the real Flask + MongoDB backend: what has to change in
@@ -19,6 +19,7 @@ our plan for switching it over to the real Flask + MongoDB backend: what has to 
 9. [Backend files to create](#9-backend-files-to-create)
 10. [Future work and deferred items](#10-future-work-and-deferred-items)
 11. [Open questions](#11-open-questions)
+12. [Switching between the mock and the real backend](#12-switching-between-the-mock-and-the-real-backend)
 
 We started from the hand-drawn route spec in `docs/api_calls.pdf`. This doc follows it except where noted
 below. The biggest differences are how passwords get checked (section 5) and the shape of
@@ -535,3 +536,110 @@ A few things to get right:
   `validation.ts` are still 0. The frontend and backend need to agree on the real values.
 - Dev database: will dev run against Atlas (which has transactions) or a local `mongod` (which would need
   replica-set mode for option 1 in section 6)?
+
+---
+
+## 12. Switching between the mock and the real backend
+
+Goal: one command to run the app against the mock, and one to run it against Flask, with no code edits in
+between. Components never change, because they only call `api.*` (section 1). Only two files decide where
+requests go: `vite.config.ts` (is the mock on?) and `api.ts` (`BASE`, the start of every URL).
+
+### The three ways to run
+
+| Mode | Command | Mock middleware | Where requests go | Use it for |
+|---|---|---|---|---|
+| Mock (default) | `npm run dev` or `npm run dev:mock` | on | Same origin, answered by `mock-api.ts` | Frontend work, no backend needed |
+| Local Flask | `npm run dev:flask` | off | Same origin, Vite proxies the API routes to Flask on port 5000 | Testing against the real backend and MongoDB |
+| Deployed | `VITE_API_URL=https://<flask-host> npm run build` | not in builds | That URL, set at build time | The cloud URL for the TAs (R2-3) |
+
+The mock is already dev-only (`apply: 'serve'` in `mock-api.ts`), so it can never end up in a production build.
+
+### The flag
+
+The flag is Vite's `--mode`. `dev:flask` runs `vite --mode flask`, and `vite.config.ts` turns the mock
+off for that mode. That needs no extra `.env` file, which matters because `.env.*` is gitignored. This
+replaces the `VITE_USE_MOCK=1` idea from section 8, since a mode is easier to get right than a
+variable someone forgets to set.
+
+Rule for the mock being on: **no `VITE_API_URL` set and the mode is not `flask`.** Setting `VITE_API_URL`
+always means "talk to a real server", so it wins.
+
+`package.json` scripts to add:
+
+```json
+"dev": "vite",
+"dev:mock": "vite",
+"dev:flask": "vite --mode flask"
+```
+
+`vite.config.ts`:
+
+```ts
+import react from '@vitejs/plugin-react'
+import { defineConfig, loadEnv } from 'vite'
+import { mockApi } from './mock-api.ts'
+
+// Every route the backend serves. Keep in sync with the table in section 2.
+const API_ROUTES = [
+  'login', 'add_user', 'get_user_projects_list', 'get_project_info', 'create_project', 'join_project',
+  'get_all_hw_names', 'get_hw_info', 'check_out', 'check_in',
+]
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+  const hasApiUrl = Boolean(env.VITE_API_URL)
+  const useMock = !hasApiUrl && mode !== 'flask'
+
+  return {
+    plugins: [react(), ...(useMock ? [mockApi()] : [])],
+    // Flask mode: send API calls to Flask so the browser sees one origin and CORS is not needed (section 8).
+    server: !useMock && !hasApiUrl
+      ? { proxy: { [`^/(${API_ROUTES.join('|')})`]: env.VITE_PROXY_TARGET || 'http://localhost:5000' } }
+      : undefined,
+  }
+})
+```
+
+Notes on the snippet:
+
+- A proxy key starting with `^` is treated as a regular expression, so one entry covers every route.
+- `GET /get_hw_info?name=...` and the others keep their query strings. Vite forwards the whole URL.
+- `api.ts` needs no change. With no `VITE_API_URL`, `BASE` is `''`, so requests go to Vite and either the mock
+  or the proxy answers them.
+- If we pick CORS (option 2 in section 8) instead of the proxy, run with `VITE_API_URL=http://localhost:5000`
+  and skip the proxy block. Flask then needs the `Access-Control-Allow-Origin` header.
+
+### `.env.example`
+
+Check this in (the real `.env` stays gitignored):
+
+```
+# Leave both unset to use the in-memory mock (npm run dev).
+# For local Flask, run `npm run dev:flask`. Change the target only if Flask is not on port 5000.
+# VITE_PROXY_TARGET=http://localhost:5000
+# For a deployed build, set the backend's public URL (no trailing slash).
+# VITE_API_URL=https://your-flask-host.example.com
+```
+
+### Before the first run against Flask
+
+- **Seed data differs.** The mock's logins (`testuser`, `alice`, `bob`) and projects (`demoproj1`, ...) will not
+  exist in MongoDB. Create a user with New User first, and make sure `seed.py` has created HWSet1 and HWSet2
+  (section 9).
+- **Match the response shapes.** The mock still returns the old array shape for `/get_user_projects_list`
+  and has no `checkedOut`. Do the section 8 changes in `api.ts`, `ProjectsView.tsx`, and the mock together,
+  or the Projects page will break against Flask.
+- **Start both servers.** Flask on port 5000 and Vite on port 5173. If Flask is down, the app shows the
+  offline banner and retries every 5 seconds. That is the status light working, not a bug.
+- **Tests do not need this switch.** `api.test.ts` stubs `fetch`, and `mock-api.test.ts` calls `handle()`
+  directly, so `npm test` works the same in every mode.
+
+### Cutover checklist
+
+1. Backend routes pass the section 2 table (status codes and `{ "error": msg }` bodies).
+2. Section 8 frontend changes are merged (map response, `checkedOut`).
+3. `npm run dev:flask` works end to end: sign up, sign in, create a project, join, check out, check in.
+4. Deployed Flask URL is set as `VITE_API_URL` in the build, and the app loads from the cloud URL.
+5. Once the team is happy, decide whether to keep `mock-api.ts` for demos or delete it. Its header comment
+   says it is not a final module.
