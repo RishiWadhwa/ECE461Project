@@ -37,7 +37,7 @@ def _user_id(data) -> str:
     user_id = _string(data, "userID")
 
     if len(user_id) < 3 or re.fullmatch(r"[a-zA-Z0-9]+", user_id) is None:
-        raise ApiError(400, "UserID must contain at least 3 letters or digits")
+        raise ApiError(400, "UserID must contain at least 3 characters")
     
     return user_id
 
