@@ -93,3 +93,16 @@ def custom_decrypt(phrase: str, key: str) -> str:
     if not hmac.compare_digest(tag, expected):
         raise ValueError("decryption failed")
     return _apply_keystream(derived, nonce, ciphertext).decode("utf-8")
+
+# only for demo
+if __name__ == "__main__":
+    created_at = datetime.now(timezone.utc).replace(microsecond=0)
+    password = "I love ECE!"
+    print(password)
+    
+    password = custom_encrypt(password, format_key(created_at))
+    print(password)
+    
+    password = custom_decrypt(password, format_key(created_at))
+    print(password)
+
