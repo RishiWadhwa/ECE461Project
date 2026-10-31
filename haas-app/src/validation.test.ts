@@ -30,9 +30,15 @@ describe('validateCreds (signUp)', () => {
     expect(err.messageFor('password')).toBeUndefined()
   })
 
-  it('rejects a userID shorter than 3 characters', () => {
-    const err = caught(() => validateCreds('ab', 'password1', 'signUp'))
-    expect(err.messageFor('userID')).toBe('UserID must be at least 3 characters!')
+  it('rejects a userID shorter than 5 characters', () => {
+    const err = caught(() => validateCreds('abcd', 'password1', 'signUp'))
+    expect(err.messageFor('userID')).toBe('UserID must be at least 5 characters!')
+    expect(err.messageFor('password')).toBeUndefined()
+  })
+
+  it('rejects a userID longer than 16 characters', () => {
+    const err = caught(() => validateCreds('a'.repeat(17), 'password1', 'signUp'))
+    expect(err.messageFor('userID')).toBe('UserID must be at most 16 characters!')
     expect(err.messageFor('password')).toBeUndefined()
   })
 
@@ -42,14 +48,28 @@ describe('validateCreds (signUp)', () => {
     expect(err.messageFor('password')).toBe('Password must be at least 8 characters!')
   })
 
+  it('rejects a password longer than 64 characters', () => {
+    const err = caught(() => validateCreds('testuser', 'p'.repeat(65), 'signUp'))
+    expect(err.messageFor('userID')).toBeUndefined()
+    expect(err.messageFor('password')).toBe('Password must be at most 64 characters!')
+  })
+
   it('accepts a userID and password exactly at the minimum length', () => {
-    expect(() => validateCreds('abc', 'pass1234', 'signUp')).not.toThrow()
+    expect(() => validateCreds('abcde', 'pass1234', 'signUp')).not.toThrow()
+  })
+
+  it('accepts a userID and password exactly at the maximum length', () => {
+    expect(() => validateCreds('a'.repeat(16), 'p'.repeat(64), 'signUp')).not.toThrow()
   })
 })
 
 describe('validateCreds (signIn)', () => {
   it('only requires both fields to be filled in', () => {
     expect(() => validateCreds('bad user!', 'pw', 'signIn')).not.toThrow()
+  })
+
+  it('does not apply the sign-up length limits', () => {
+    expect(() => validateCreds('a'.repeat(17), 'p'.repeat(65), 'signIn')).not.toThrow()
   })
 
   it('reports both empty fields at once', () => {

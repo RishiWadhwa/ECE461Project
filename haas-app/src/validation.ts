@@ -1,16 +1,25 @@
 import { ValidationError, type Field } from "./errors.ts";
 import type { Integer } from "./math.ts"
 
-// We must agree to set values with the backend team.
 /**
  * This variable is the fewest characters a userID may have.
  */
-const MIN_USERID_LENGTH = 3;
+const MIN_USERID_LENGTH = 5;
+
+/**
+ * This variable is the maximum characters allowed for a userID.
+ */
+const MAX_USERID_LENGTH = 16;
 
 /**
  * This variable is the fewest characters a password may have.
  */
 const MIN_PASSWORD_LENGTH = 8;
+
+/**
+ * This variable is the maximum characters allowed for a password.
+ */
+const MAX_PASSWORD_LENGTH = 64;
 
 /**
  * This variable is the fewest characters a project ID may have.
@@ -75,7 +84,9 @@ function checkUserID(value: string): string | null {
     if (requiredMsg != null) {
         return requiredMsg;
     } else if (value.length < MIN_USERID_LENGTH) {
-        return `UserID must be at least ${MIN_USERID_LENGTH} characters!`
+        return `UserID must be at least ${MIN_USERID_LENGTH} characters!`;
+    } else if (value.length > MAX_USERID_LENGTH) {
+        return `UserID must be at most ${MAX_USERID_LENGTH} characters!`;
     } else {
         // validate the characters.
         if (!ALLOWED_CHARS.test(value)) {
@@ -97,6 +108,8 @@ function checkPassword(value: string): string | null {
         return requiredMsg;
     } else if (value.length < MIN_PASSWORD_LENGTH) {
         return `Password must be at least ${MIN_PASSWORD_LENGTH} characters!`;
+    } else if (value.length > MAX_PASSWORD_LENGTH) {
+        return `Password must be at most ${MAX_PASSWORD_LENGTH} characters!`;
     }
     // We can add more password rules here!
     return null;
