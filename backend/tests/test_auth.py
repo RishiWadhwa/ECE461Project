@@ -23,13 +23,21 @@ def test_duplicate_user_is_409(client):
     assert register(client).status_code == 409
 
 @pytest.mark.parametrize("body", [
-    {"password": "correcthorse"},             # missing userID
-    {"userID": "al", "password": "correcthorse"},  # too short
-    {"userID": "alice", "password": "short"},  # password < 8
+    {"password": "correcthorse"},                      # missing userID
+    {"userID": "abcd", "password": "correcthorse"},    # userID < 5
+    {"userID": "a" * 17, "password": "correcthorse"},  # userID > 16
+    {"userID": "alice", "password": "short"},          # password < 8
+    {"userID": "alice", "password": "p" * 65},         # password > 64
     ["not", "an", "object"],
 ])
-
 def test_add_user_rejects_bad_input(client, body):
     r = client.post("/add_user", json=body)
     assert r.status_code == 400
     assert "error" in r.get_json()
+
+@pytest.mark.parametrize("user, pw", [
+    ("abcde", "pass1234"),        # both at the minimum
+    ("a" * 16, "p" * 64),         # both at the maximum
+])
+def test_add_user_accepts_length_limits(client, user, pw):
+    assert register(client, user, pw).status_code == 201
