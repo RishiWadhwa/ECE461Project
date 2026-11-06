@@ -32,14 +32,14 @@ describe('api requests', () => {
   it('sends validated values as plain JSON', async () => {
     fetchMock.mockReturnValue(reply(200, {}))
     await api.login(validateCreds('testuser', 'test1234', 'signIn'))
-    await api.checkOut('demoproj1', 'HWSet1', validateQuantity(Integer.of(5), Integer.of(10)))
+    await api.checkOut('testuser', 'demoproj1', 'HWSet1', validateQuantity(Integer.of(5), Integer.of(10)))
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ userID: 'testuser', password: 'test1234' })
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ projectID: 'demoproj1', hwSet: 'HWSet1', quantity: 5 })
   })
 
   it('throws an ApiError carrying the status and the server message', async () => {
     fetchMock.mockReturnValueOnce(reply(409, { error: 'Only 3 units of HWSet1 available' }))
-    const err = await api.checkOut('demoproj1', 'HWSet1', validateQuantity(Integer.of(5), Integer.of(10))).catch((e) => e)
+    const err = await api.checkOut('testuser', 'demoproj1', 'HWSet1', validateQuantity(Integer.of(5), Integer.of(10))).catch((e) => e)
     expect(err).toBeInstanceOf(ApiError)
     expect(err.isConflict()).toBe(true)
     expect(err.message).toBe('Only 3 units of HWSet1 available')

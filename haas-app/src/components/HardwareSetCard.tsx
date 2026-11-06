@@ -48,6 +48,7 @@ export default function HardwareSetCard({ hwSet, projectID, onChange }: Props) {
       const max = Integer.of(kind === 'out' ? hwSet.available : Number.MAX_SAFE_INTEGER)
       const quantity = validateQuantity(amount, max)
       const call = kind === 'out' ? api.checkOut : api.checkIn
+      // We need to adjust to account for the userID
       const updated = await enqueue(`${projectID}:${hwSet.name}`, () => call(projectID, hwSet.name, quantity))
       onChange(updated)
       setQty('')
