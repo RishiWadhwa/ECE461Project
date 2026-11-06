@@ -219,8 +219,8 @@ export const api = {
    * `quantity` goes out as a plain JSON integer. Quantity has already been validated, and the server
    * rejects strings, decimals, booleans, and anything <= 0.
    */
-  checkOut: (projectID: string, hwSet: string, quantity: Quantity) =>
-    post<HardwareSet>('/check_out', { projectID, hwSet, quantity }),
+  checkOut: (userID: string, projectID: string, hwSet: string, quantity: Quantity) =>
+    post<HardwareSet>('/check_out', { userID, projectID, hwSet, quantity }),
 
   /**
    * POST /check_in  (write). Returns `quantity` units from a project to the shared pool and returns
@@ -230,8 +230,8 @@ export const api = {
    * (see getHardwareInfo above), the frontend can check it too.
    * Same critical-section rules as check-out (roadmap section 6).
    */
-  checkIn: (projectID: string, hwSet: string, quantity: Quantity) =>
-    post<HardwareSet>('/check_in', { projectID, hwSet, quantity }),
+  checkIn: (userID: string, projectID: string, hwSet: string, quantity: Quantity) =>
+    post<HardwareSet>('/check_in', { userID, projectID, hwSet, quantity }),
 }
 
 // While offline, connection.ts retries this cheap read-only call to detect when the server is back.

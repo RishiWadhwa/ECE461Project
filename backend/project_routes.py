@@ -36,21 +36,21 @@ def _string(data, field: str, *, allow_empty: bool = False) -> str:
 def _user_id(data) -> str:
     user_id = _string(data, "userID")
 
-    if len(user_id) < 3 or re.fullmatch(r"[a-zA-Z0-9]+", user_id) is None:
-        raise ApiError(400, "UserID must contain at least 3 characters")
+    if len(user_id) < 5 or re.fullmatch(r"[a-zA-Z0-9]+", user_id) is None:
+        raise ApiError(400, "UserID must contain at least 5 characters")
     
     return user_id
 
 
 def _project_id(data) -> str:
-    project_id = _string(data, "projectID")
+    project_id = _string(data, "projectID").upper()
 
     if len(project_id) < 8:
         raise ApiError(400, "Project ID must be at least 8 characters")
-    
-    if re.fullmatch(r"[a-zA-Z0-9]+", project_id) is None:
-        raise ApiError(400, "Project ID can only contain letters and digits")
-    
+
+    if re.fullmatch(r"PROJ[0-9]{3,}", project_id) is None:
+        raise ApiError(400, "Project ID must be PROJ followed by at least 3 digits")
+
     return project_id
 
 
