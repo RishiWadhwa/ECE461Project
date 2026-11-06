@@ -20,7 +20,6 @@ Course honor code applies to everything in this repo.
 - **No code copied from the web.** Not from Stack Overflow, blog posts, tutorial repos, GitHub projects, or gists — and not paraphrased out of them. Write from the problem, from official library documentation, or from class slides. Attribute slide-derived code in a comment.
 - **Using a library is not copying.** Installing Flask, React, `pymongo`, `bcrypt`, or pytest and calling their documented APIs is the assignment. Following official docs is fine.
 - No code from other students or from prior semesters.
-- **Keep this repository private.** Course solution code must not be published, during or after the semester.
 
 ## Stack
 
@@ -60,3 +59,17 @@ Frontend (run from `haas-app/`):
 - `npx vitest run src/api.test.ts` — run a single test file
 - `npm run lint` — oxlint
 - `npm run build` — typecheck (`tsc -b`) and production build
+
+Backend (run from the repo root, not `backend/` — the routes import `mongodb` as a top-level package):
+
+- `python3.12 -m venv .venv && source .venv/bin/activate` — one-time setup; the lab machines' default `python3` is 3.6, which is too old
+- `pip install -r backend/requirements-dev.txt` — runtime deps plus pytest and mongomock (`requirements.txt` alone is the runtime set)
+- `flask --app backend.app run` — dev server on port 5000; add `--debug` for auto-reload
+- `flask --app backend.app routes` — list every registered route
+- `pytest` — run the backend suites (`backend/tests/`, configured in `pytest.ini`)
+- `pytest backend/tests/test_auth.py` — run a single test file; add `-k <name>` for a single test
+
+Database:
+
+- Connection settings come from a `.env` at the repo root (copy `.env.example`): `MONGO_URI` (the Atlas connection string) and `MONGO_DB` (defaults to `haas`). `mongodb/connection.py` loads it automatically.
+- Tests never touch `haas`: they use the `haas_test` database on an in-memory mongomock client. Set `TEST_MONGO_URI` to run them against a real MongoDB instead — required for anything that uses transactions (`check_out`/`check_in`), which mongomock doesn't support. Atlas clusters support transactions.
