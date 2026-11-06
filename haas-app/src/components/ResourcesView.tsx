@@ -7,10 +7,11 @@ import { useConnectionStatus } from '../connection.ts'
 
 interface Props {
   projectID: string
+  userID: string
   onBack: () => void
 }
 
-export default function ResourcesView({ projectID, onBack }: Props) {
+export default function ResourcesView({ projectID, userID, onBack }: Props) {
   const [sets, setSets] = useState<HardwareSet[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -82,7 +83,7 @@ export default function ResourcesView({ projectID, onBack }: Props) {
 
       <div className="pair-grid hw-grid">
         {sets.map((s) => (
-          <HardwareSetCard key={s.name} hwSet={s} projectID={projectID} onChange={replace} />
+          <HardwareSetCard key={s.name} hwSet={s} projectID={projectID} userID={userID} onChange={replace} />
         ))}
       </div>
     </div>

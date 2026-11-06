@@ -44,7 +44,7 @@ export default function App() {
 
       <main className="content">
         {projectID ? (
-          <ResourcesView projectID={projectID} onBack={() => setProjectID(null)} />
+          <ResourcesView projectID={projectID} userID={userID} onBack={() => setProjectID(null)} />
         ) : (
           <ProjectsView userID={userID} onOpen={setProjectID} />
         )}

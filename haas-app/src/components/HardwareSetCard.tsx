@@ -9,6 +9,7 @@ import { enqueue } from '../session.ts'
 interface Props {
   hwSet: HardwareSet
   projectID: string
+  userID: string
   onChange: (updated: HardwareSet) => void
 }
 
@@ -21,7 +22,7 @@ const QUANTITY_FORMAT_MESSAGES: Record<NumberFormatReason, string> = {
   outOfRange: 'Quantity is too large!',
 }
 
-export default function HardwareSetCard({ hwSet, projectID, onChange }: Props) {
+export default function HardwareSetCard({ hwSet, projectID, userID, onChange }: Props) {
   const [qty, setQty] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ kind: 'ok' | 'warn' | 'error'; text: string } | null>(null)
@@ -48,8 +49,7 @@ export default function HardwareSetCard({ hwSet, projectID, onChange }: Props) {
       const max = Integer.of(kind === 'out' ? hwSet.available : Number.MAX_SAFE_INTEGER)
       const quantity = validateQuantity(amount, max)
       const call = kind === 'out' ? api.checkOut : api.checkIn
-      // We need to adjust to account for the userID
-      const updated = await enqueue(`${projectID}:${hwSet.name}`, () => call(projectID, hwSet.name, quantity))
+      const updated = await enqueue(`${projectID}:${hwSet.name}`, () => call(userID, projectID, hwSet.name, quantity))
       onChange(updated)
       setQty('')
       setMessage({ kind: 'ok', text: `${kind === 'out' ? 'Checked out' : 'Checked in'} ${quantity} unit${quantity.intValue() === 1 ? '' : 's'}` })
