@@ -49,7 +49,7 @@ def _project_id(data) -> str:
         raise ApiError(400, "Project ID must be at least 8 characters")
 
     if re.fullmatch(r"PROJ[0-9]{3,}", project_id) is None:
-        raise ApiError(400, "Project ID must be PROJ followed by digits")
+        raise ApiError(400, "Project ID must be PROJ followed by at least 3 digits")
 
     return project_id
 
