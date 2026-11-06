@@ -34,7 +34,7 @@ describe('api requests', () => {
     await api.login(validateCreds('testuser', 'test1234', 'signIn'))
     await api.checkOut('testuser', 'demoproj1', 'HWSet1', validateQuantity(Integer.of(5), Integer.of(10)))
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ userID: 'testuser', password: 'test1234' })
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ projectID: 'demoproj1', hwSet: 'HWSet1', quantity: 5 })
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ userID: 'testuser', projectID: 'demoproj1', hwSet: 'HWSet1', quantity: 5 })
   })
 
   it('throws an ApiError carrying the status and the server message', async () => {
