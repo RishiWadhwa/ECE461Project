@@ -80,10 +80,11 @@ export const api = {
 
   getHardwareNames: () => request<{ names: string[] }>('/get_all_hw_names'),
   getHardwareInfo: (name: string) => request<HardwareSet>('/get_hw_info' + q({ name })),
-  checkOut: (projectID: string, hwSet: string, quantity: Quantity) =>
-    post<HardwareSet>('/check_out', { projectID, hwSet, quantity }),
-  checkIn: (projectID: string, hwSet: string, quantity: Quantity) =>
-    post<HardwareSet>('/check_in', { projectID, hwSet, quantity }),
+  /* added userID, feel free to adjust -- tyler */
+  checkOut: (userID: string, projectID: string, hwSet: string, quantity: Quantity) =>
+    post<HardwareSet>('/check_out', { userID, projectID, hwSet, quantity }),
+  checkIn: (userID: string, projectID: string, hwSet: string, quantity: Quantity) =>
+    post<HardwareSet>('/check_in', { userID, projectID, hwSet, quantity }),
 }
 
 // While offline, connection.ts retries this cheap read-only call to detect when the server is back.
