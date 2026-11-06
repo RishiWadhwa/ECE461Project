@@ -20,6 +20,7 @@ import hmac
 import re
 import secrets
 from datetime import datetime, timezone
+import sys
 
 KEY_FORMAT = "%Y-%m-%d %H:%M:%S"
 _KEY_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\Z")
@@ -99,6 +100,9 @@ if __name__ == "__main__":
     created_at = datetime.now(timezone.utc).replace(microsecond=0)
     password = "I love ECE!"
     print(password)
+
+    derived = _derive_key(format_key(created_at))
+    print(sys.getsizeof(created_at), sys.getsizeof(format_key(created_at)), len(derived), "\n",  derived)
     
     password = custom_encrypt(password, format_key(created_at))
     print(password)
