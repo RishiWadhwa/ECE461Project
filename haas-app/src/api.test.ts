@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { api } from './api.ts'
+import { createApi, HttpApiClient } from './api.ts'
 import { ApiError, NetworkError } from './errors.ts'
 import { getConnectionStatus, markOnline, PROBE_INTERVAL_MS } from './connection.ts'
 import { Integer } from './math.ts'
@@ -11,15 +11,36 @@ function reply(status: number, body: unknown) {
   return Promise.resolve(new Response(JSON.stringify(body), { status }))
 }
 
+// The suites below test the HTTP client against a stubbed fetch. A fresh client per test also makes it
+// the one the offline probe uses (the newest client owns the probe).
+let api: HttpApiClient
+
 beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock)
   fetchMock.mockReset()
+  api = new HttpApiClient('')
   markOnline()
 })
 
 afterEach(() => {
   vi.useRealTimers()
   vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
+})
+
+describe('createApi', () => {
+  it('sends to the same origin (the mock middleware) in dev and test mode', async () => {
+    fetchMock.mockReturnValueOnce(reply(200, { names: [] }))
+    await createApi().getHardwareNames()
+    expect(fetchMock).toHaveBeenCalledWith('/get_all_hw_names', expect.anything())
+  })
+
+  it('sends to Flask on port 5000 in prod mode (npm run dev:prod)', async () => {
+    vi.stubEnv('MODE', 'prod')
+    fetchMock.mockReturnValueOnce(reply(200, { names: [] }))
+    await createApi().getHardwareNames()
+    expect(fetchMock).toHaveBeenCalledWith('http://localhost:5000/get_all_hw_names', expect.anything())
+  })
 })
 
 describe('api requests', () => {
