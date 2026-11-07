@@ -2,7 +2,8 @@ The mock backend is two files. Both are dev-only and NOT final modules:
 - haas-app/mock-db.ts has the in-memory tables (users, projects, memberships, hardware, holdings).
     createSeededDB() builds a fresh copy with the seed data. Everything resets whenever the dev server restarts.
 - haas-app/mock-api.ts has the route logic. handle(db, method, path, query, body) is a plain function so the
-    tests can call it directly, and mockApi() wraps it as a Vite plugin. The mock only runs when VITE_API_URL isn't set.
+    tests can call it directly, and mockApi() wraps it as a Vite plugin. The mock runs with `npm run dev`
+    and is off with `npm run dev:prod` (which talks to Flask). See docs/api-roadmap.md section 12.
 
 Test logins (seeded in haas-app/mock-db.ts):
 testuser / test1234

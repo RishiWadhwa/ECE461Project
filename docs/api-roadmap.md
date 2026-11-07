@@ -31,19 +31,17 @@ below. The biggest differences are how passwords get checked (section 5) and the
 
 ```mermaid
 flowchart LR
-  UI[React components] --> API[src/api.ts]
-  API -->|fetch BASE + path| Switch{VITE_API_URL set?}
-  Switch -- no --> Mock[mock-api.ts<br/>Vite dev middleware]
+  UI[React components] --> API["api (src/api.ts)<br/>HttpApiClient"]
+  API -->|fetch base + path| Switch{"Vite mode"}
+  Switch -- "dev: same origin" --> Mock[mock-api.ts<br/>Vite dev middleware]
   Mock --> MockDB[(mock-db.ts<br/>in-memory Maps)]
-  Switch -- yes --> Flask[Flask API]
+  Switch -- "prod: localhost:5000" --> Flask[Flask API]
   Flask --> Mongo[(MongoDB)]
 ```
 
 All HTTP requests go through `api.ts`. Components call the `api.*` functions and never use `fetch`
-themselves.
-
-`api.ts` builds every URL from `BASE = import.meta.env.VITE_API_URL ?? ''`. If `VITE_API_URL` isn't set,
-`vite.config.ts` plugs the mock in as dev middleware and requests go to the same origin.
+themselves. `createApi()` picks the base URL once at startup, and `vite.config.ts` turns the mock
+middleware on or off with the same mode (section 12).
 
 Any non-2xx response needs a JSON body like `{ "error": "<message>" }`. `api.ts` turns that into an
 `ApiError(status, message)`, and the components show the message to the user exactly as it comes back. So
@@ -445,10 +443,11 @@ getHardwareInfo: (name: string, projectID?: string) =>
   - Add `checkedOut` to the hardware responses, so `npm run dev` and the tests keep working without a backend.
   - Update `mock-api.test.ts` and `src/api.test.ts` for the new shapes.
 
-### Config files to add
+### Cross-origin requests in dev
 
-We need a `haas-app/.env.example` (checked in) with `VITE_API_URL=http://localhost:5000`. The real `.env`
-stays gitignored.
+**Decided (2026-11-07):** option 2. Flask already enables CORS for `http://localhost:5173` with `flask-cors`
+(`backend/app.py`), and `npm run dev:prod` calls `http://localhost:5000` directly (section 12). No proxy.
+The original options are kept below for reference.
 
 In dev, Vite runs on port 5173 and Flask runs on 5000. Those count as different origins, so the browser will
 block the API calls unless we do one of these:
@@ -536,110 +535,124 @@ A few things to get right:
   `validation.ts` are still 0. The frontend and backend need to agree on the real values.
 - Dev database: will dev run against Atlas (which has transactions) or a local `mongod` (which would need
   replica-set mode for option 1 in section 6)?
+- Separate `haas_dev` database for `npm run dev:prod` (on hold, waiting on the frontend team). Until then,
+  `dev:prod` writes to `haas`. How it would work:
+  1. Dev machines set `MONGO_DB=haas_dev` in the root `.env`; the deployed server keeps `MONGO_DB=haas`.
+     `get_db()` in `mongodb/connection.py` already reads `MONGO_DB`, so the switch needs no code change.
+  2. Seed `haas_dev` the same way as `haas` (HWSet1/HWSet2 and the same unique indexes), or the Hardware
+     page will be empty.
+  3. Optional guard: refuse to start `flask --debug` while `MONGO_DB` is `haas`.
+  The frontend needs no change, because it only picks which backend to call (`createApi()` in `api.ts`).
 
 ---
 
 ## 12. Switching between the mock and the real backend
 
-Goal: one command to run the app against the mock, and one to run it against Flask, with no code edits in
-between. Components never change, because they only call `api.*` (section 1). Only two files decide where
-requests go: `vite.config.ts` (is the mock on?) and `api.ts` (`BASE`, the start of every URL).
+**Implemented 2026-11-07.** One command runs the app against the mock and another runs it against Flask,
+with no code edits in between. Components never change, because they only call `api.*` (section 1).
+
+### Design
+
+Two pieces, both keyed on Vite's `--mode`:
+
+- **`vite.config.ts`** turns the mock middleware (`mockApi()` from `mock-api.ts`) on for every mode except
+  `prod`. The mock is a real HTTP server inside Vite's dev server, so the browser makes real requests,
+  the data lives on the dev server (shared by every tab, reset when the server restarts), and curl or
+  Postman can hit it. `apply: 'serve'` keeps it out of production builds.
+- **`createApi()` in `src/api.ts`** picks the base URL: `''` (same origin, so the mock answers) or Flask.
+
+`api.ts` is split into an abstract `ApiClient` and one subclass, `HttpApiClient`:
+
+```mermaid
+classDiagram
+  class ApiClient {
+    <<abstract>>
+    #send(method, path, query, body)* RawResponse
+    -request(...) ApiError / NetworkError / body
+    +login() addUser() getUserProjects() ...
+    +checkOut() checkIn()
+  }
+  class HttpApiClient {
+    -base: string
+    #send() fetch + 8s timeout
+  }
+  ApiClient <|-- HttpApiClient
+```
+
+- `ApiClient` owns every route and `request()`, which turns a status into `ApiError` and reports
+  online/offline to `connection.ts`. Subclasses never see those details (encapsulation). The routes are
+  arrow-function fields so `this` stays bound when a component passes one around (`HardwareSetCard` does
+  `const call = api.checkOut`).
+- `HttpApiClient` sends with `fetch`, adds JSON headers and the timeout, and throws `NetworkError` when no
+  answer comes back.
+- A different transport later (for example an in-browser mock with no dev server) would be one more
+  subclass with its own `send()`. An in-browser `MockApiClient` was tried on 2026-11-07 and dropped in
+  favour of the middleware, which keeps state across tabs and exercises the real `fetch` path.
 
 ### The three ways to run
 
-| Mode | Command | Mock middleware | Where requests go | Use it for |
-|---|---|---|---|---|
-| Mock (default) | `npm run dev` or `npm run dev:mock` | on | Same origin, answered by `mock-api.ts` | Frontend work, no backend needed |
-| Local Flask | `npm run dev:flask` | off | Same origin, Vite proxies the API routes to Flask on port 5000 | Testing against the real backend and MongoDB |
-| Deployed | `VITE_API_URL=https://<flask-host> npm run build` | not in builds | That URL, set at build time | The cloud URL for the TAs (R2-3) |
+| Command | Vite mode | Mock middleware | Where requests go |
+|---|---|---|---|
+| `npm run dev` | `development` | on | Same origin, answered by `mock-api.ts` |
+| `npm test` | `test` | not used | Nowhere: `api.test.ts` stubs `fetch`, `mock-api.test.ts` calls `handle()` |
+| `npm run dev:prod` | `prod` | off | `VITE_API_URL`, or Flask at `http://localhost:5000` |
+| `npm run build` | `production` | never in builds | `VITE_API_URL` set at build time, or the same origin |
 
-The mock is already dev-only (`apply: 'serve'` in `mock-api.ts`), so it can never end up in a production build.
+The flag is Vite's `--mode` rather than an environment variable because it works the same on Windows and
+Linux without adding `cross-env`, and `.env.*` files are gitignored.
 
-### The flag
+### Cross-origin
 
-The flag is Vite's `--mode`. `dev:flask` runs `vite --mode flask`, and `vite.config.ts` turns the mock
-off for that mode. That needs no extra `.env` file, which matters because `.env.*` is gitignored. This
-replaces the `VITE_USE_MOCK=1` idea from section 8, since a mode is easier to get right than a
-variable someone forgets to set.
+Vite runs on port 5173 and Flask on 5000. Flask already allows `http://localhost:5173` through `flask-cors`
+(section 8), so `dev:prod` calls Flask directly and there is no Vite proxy. If Vite starts on 5174 because
+5173 is busy, the browser will block the calls; free the port or add the origin in `backend/app.py`.
 
-Rule for the mock being on: **no `VITE_API_URL` set and the mode is not `flask`.** Setting `VITE_API_URL`
-always means "talk to a real server", so it wins.
+For deployment, `CORS(...)` in `backend/app.py` must also allow the deployed frontend's origin, or serve the
+built frontend from the same origin as Flask.
 
-`package.json` scripts to add:
+### Simulated outage (mock only)
 
-```json
-"dev": "vite",
-"dev:mock": "vite",
-"dev:flask": "vite --mode flask"
-```
+In the browser console while `npm run dev` is running: `fetch('/__mock/outage?seconds=15', { method: 'POST' })`.
+API requests drop for 15 seconds, the header light turns red, and the app recovers by itself afterwards.
 
-`vite.config.ts`:
+### Which database `dev:prod` uses
 
-```ts
-import react from '@vitejs/plugin-react'
-import { defineConfig, loadEnv } from 'vite'
-import { mockApi } from './mock-api.ts'
-
-// Every route the backend serves. Keep in sync with the table in section 2.
-const API_ROUTES = [
-  'login', 'add_user', 'get_user_projects_list', 'get_project_info', 'create_project', 'join_project',
-  'get_all_hw_names', 'get_hw_info', 'check_out', 'check_in',
-]
-
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '')
-  const hasApiUrl = Boolean(env.VITE_API_URL)
-  const useMock = !hasApiUrl && mode !== 'flask'
-
-  return {
-    plugins: [react(), ...(useMock ? [mockApi()] : [])],
-    // Flask mode: send API calls to Flask so the browser sees one origin and CORS is not needed (section 8).
-    server: !useMock && !hasApiUrl
-      ? { proxy: { [`^/(${API_ROUTES.join('|')})`]: env.VITE_PROXY_TARGET || 'http://localhost:5000' } }
-      : undefined,
-  }
-})
-```
-
-Notes on the snippet:
-
-- A proxy key starting with `^` is treated as a regular expression, so one entry covers every route.
-- `GET /get_hw_info?name=...` and the others keep their query strings. Vite forwards the whole URL.
-- `api.ts` needs no change. With no `VITE_API_URL`, `BASE` is `''`, so requests go to Vite and either the mock
-  or the proxy answers them.
-- If we pick CORS (option 2 in section 8) instead of the proxy, run with `VITE_API_URL=http://localhost:5000`
-  and skip the proxy block. Flask then needs the `Access-Control-Allow-Origin` header.
-
-### `.env.example`
-
-Check this in (the real `.env` stays gitignored):
-
-```
-# Leave both unset to use the in-memory mock (npm run dev).
-# For local Flask, run `npm run dev:flask`. Change the target only if Flask is not on port 5000.
-# VITE_PROXY_TARGET=http://localhost:5000
-# For a deployed build, set the backend's public URL (no trailing slash).
-# VITE_API_URL=https://your-flask-host.example.com
-```
+The frontend only picks which backend to call. Flask's `MONGO_DB` (root `.env`, default `haas`) picks the
+database, so **`dev:prod` currently reads and writes the real `haas` data.** A separate `haas_dev` database
+is on hold; how it would work is in section 11.
 
 ### Before the first run against Flask
 
-- **Seed data differs.** The mock's logins (`testuser`, `alice`, `bob`) and projects (`demoproj1`, ...) will not
-  exist in MongoDB. Create a user with New User first, and make sure `seed.py` has created HWSet1 and HWSet2
-  (section 9).
-- **Match the response shapes.** The mock still returns the old array shape for `/get_user_projects_list`
-  and has no `checkedOut`. Do the section 8 changes in `api.ts`, `ProjectsView.tsx`, and the mock together,
-  or the Projects page will break against Flask.
-- **Start both servers.** Flask on port 5000 and Vite on port 5173. If Flask is down, the app shows the
-  offline banner and retries every 5 seconds. That is the status light working, not a bug.
-- **Tests do not need this switch.** `api.test.ts` stubs `fetch`, and `mock-api.test.ts` calls `handle()`
-  directly, so `npm test` works the same in every mode.
+- **Start both servers.** `flask --app backend.app run` from the repo root, then `npm run dev:prod` from
+  `haas-app/`. If Flask is down, the app shows the offline banner and retries every 5 seconds. That is the
+  status light working, not a bug.
+- **Seed data differs.** The mock's logins and projects do not exist in MongoDB. Create a user with New User
+  first. `bob` (3 characters) could not exist there anyway, because Flask requires 5 to 16 characters.
+- **Project IDs.** Flask requires `PROJ` followed by at least 3 digits and uppercases the ID
+  (`backend/project_routes.py`). The frontend only requires 8+ letters or digits, and the mock's seeded IDs
+  (`demoproj1`, ...) would get a 400 from Flask. Use IDs like `PROJ0001` until the team settles on one rule.
+
+### Backend issues found while wiring this up (2026-11-07)
+
+From reading `backend/` (no change made there):
+
+1. **`/check_out` has no `return`** after the update (`backend/hw_routes.py`), so Flask answers 500 even
+   though the units were already taken. The page shows an error and the numbers look wrong after a refetch.
+2. **Check-in limit is per hardware set, not per project.** Both routes use a `checkedOut` count on the
+   hardware document, so project A can check in units project B checked out. The per-project ledger in
+   `mongodb/checkout/operations.py` exists but the routes do not call it.
+3. **CORS only allows `http://localhost:5173`** (see Cross-origin above).
+4. Non-members get a 403 on check-out and check-in. The frontend already treats that as an auth error.
+5. `/get_user_projects_list` still returns an array, which matches the current frontend (section 8's map
+   change has not happened on either side).
 
 ### Cutover checklist
 
-1. Backend routes pass the section 2 table (status codes and `{ "error": msg }` bodies).
+1. Backend routes pass the section 2 table (status codes and `{ "error": msg }` bodies), including the
+   issues above.
 2. Section 8 frontend changes are merged (map response, `checkedOut`).
-3. `npm run dev:flask` works end to end: sign up, sign in, create a project, join, check out, check in.
-4. Deployed Flask URL is set as `VITE_API_URL` in the build, and the app loads from the cloud URL.
-5. Once the team is happy, decide whether to keep `mock-api.ts` for demos or delete it. Its header comment
-   says it is not a final module.
+3. `npm run dev:prod` works end to end: sign up, sign in, create a project, join, check out, check in.
+4. Deployed Flask URL is set as `VITE_API_URL` in the build, CORS allows the deployed origin, and the app
+   loads from the cloud URL.
+5. Once the team is happy, decide whether to keep `mock-api.ts` for demos and frontend work, or delete it.
+   Its header comment says it is not a final module.

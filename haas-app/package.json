@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:prod": "vite --mode prod",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",

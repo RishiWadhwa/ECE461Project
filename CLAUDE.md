@@ -53,7 +53,8 @@ A deviation from this stack needs TA sign-off first.
 
 Frontend (run from `haas-app/`):
 
-- `npm run dev` — dev server; uses the in-memory mock API (`mock-api.ts` + `mock-db.ts`) unless `VITE_API_URL` is set
+- `npm run dev` — dev server with the in-memory mock API as Vite middleware (`mock-api.ts` + `mock-db.ts`); no backend needed
+- `npm run dev:prod` — dev server against Flask (`HttpApiClient`, `http://localhost:5000` unless `VITE_API_URL` is set); start Flask first. Writes to whatever database Flask's `MONGO_DB` names (`haas` by default)
 - `npm test` — run the vitest suites once (`src/*.test.ts`, `mock-api.test.ts`)
 - `npm run test:watch` — vitest in watch mode
 - `npx vitest run src/api.test.ts` — run a single test file
