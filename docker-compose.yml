@@ -1,0 +1,44 @@
+# The whole HaaS app with a throwaway database, for local testing and CI:
+#   docker compose up --build       → http://localhost:8000
+#   docker compose down --volumes   → stops everything and deletes the database
+# Production does not use this file: it runs the same image with MONGO_URI pointing at Atlas.
+
+services:
+  mongo:
+    image: mongo:7.0
+    # A one-member replica set, because MongoDB only allows transactions on a replica set.
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    healthcheck:
+      # Also sets up the replica set the first time it runs; after that, rs.status() simply succeeds.
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --eval
+        - "try { rs.status() } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] }) }"
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 5s
+
+  app:
+    build: .
+    environment:
+      MONGO_URI: mongodb://mongo:27017/?replicaSet=rs0
+      MONGO_DB: haas_compose
+    ports:
+      - "8000:8000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    healthcheck:
+      # Healthy once Flask answers an API route that reads from the database.
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/get_all_hw_names', timeout=3)"
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s

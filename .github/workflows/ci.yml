@@ -26,9 +26,10 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             files=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD)
           else
-            files=$(printf 'haas-app/\nbackend/')   # pushes to dev/main: check everything (one folder per line)
+            files=$(printf 'haas-app/\nbackend/\nmongodb/')   # pushes to dev/main: check everything (one folder per line)
           fi
-          has() { echo "$files" | grep -qE "^($1|\.github/)" && echo true || echo false; }
+          # Changes to CI or to the Docker files count as touching everything.
+          has() { echo "$files" | grep -qE "^($1|\.github/|Dockerfile|docker-compose\.yml|\.dockerignore)" && echo true || echo false; }
           echo "frontend=$(has haas-app/)" >> "$GITHUB_OUTPUT"
           echo "backend=$(has 'backend/|mongodb/|pytest\.ini')" >> "$GITHUB_OUTPUT"
 
@@ -67,9 +68,36 @@ jobs:
       - run: pip install -r backend/requirements-dev.txt
       - run: pytest
 
+  # The whole app as it will be deployed: builds the production image and starts it with Docker Compose
+  # (built frontend + Flask + a throwaway MongoDB), then checks it over HTTP. Runs when either side changes,
+  # since a change on one side can break the other.
+  docker:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image and start the app
+        run: docker compose up --build --detach --wait --wait-timeout 300
+      - name: The frontend page is served
+        run: curl -sf http://localhost:8000/ | grep -q '<div id="root">'
+      - name: The API answers and reaches the database
+        run: curl -sf http://localhost:8000/get_all_hw_names
+      - name: A new user can register and log in
+        run: |
+          body='{"userID": "ciuser01", "password": "password123"}'
+          curl -sf -X POST http://localhost:8000/add_user -H 'Content-Type: application/json' -d "$body"
+          curl -sf -X POST http://localhost:8000/login -H 'Content-Type: application/json' -d "$body"
+      - name: Container logs
+        if: failure()
+        run: docker compose logs
+      - name: Stop and delete everything
+        if: always()
+        run: docker compose down --volumes
+
   ci-ok:
     if: always()
-    needs: [changes, frontend, backend]  # add integration here when it's added
+    needs: [changes, frontend, backend, docker]
     runs-on: ubuntu-latest
     steps:
       - run: |
