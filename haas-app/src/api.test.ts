@@ -35,11 +35,12 @@ describe('createApi', () => {
     expect(fetchMock).toHaveBeenCalledWith('/get_all_hw_names', expect.anything())
   })
 
-  it('sends to Flask on port 5000 in prod mode (npm run dev:prod)', async () => {
+  it('sends to Flask on port 5001 in production mode', async () => {
     vi.stubEnv('MODE', 'prod')
-    fetchMock.mockReturnValueOnce(reply(200, { names: [] }))
+    vi.stubEnv('VITE_API_URL', undefined)
+    fetchMock.mockReturnValueOnce(reply(200, {names: []}))
     await createApi().getHardwareNames()
-    expect(fetchMock).toHaveBeenCalledWith('http://localhost:5000/get_all_hw_names', expect.anything())
+    expect(fetchMock).toHaveBeenCalledWith('http://localhost:5001/get_all_hw_names', expect.anything(),)
   })
 })
 
