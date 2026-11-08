@@ -286,14 +286,14 @@ export class HttpApiClient extends ApiClient {
  * Picks the base URL from the Vite mode (roadmap section 12). This is the only mock/real decision in the
  * frontend; vite.config.ts turns the mock middleware on or off with the same mode.
  *   npm run dev, npm test  -> '' (same origin). In dev the mock middleware answers; tests stub fetch.
- *   npm run dev:prod       -> VITE_API_URL, or Flask at http://localhost:5000
+ *   npm run dev:prod       -> VITE_API_URL, or Flask at http://localhost:5001
  *   npm run build          -> VITE_API_URL, or the same origin if it is unset
  *
  * DEV DATABASE (on hold, see docs/api-roadmap.md section 11): which MongoDB database dev:prod writes to is decided
  * by Flask's MONGO_DB, not here. If the team adds a `haas_dev` database, nothing in this file changes.
  */
 export function createApi(): ApiClient {
-  const fallback = import.meta.env.MODE === 'prod' ? 'http://localhost:5000' : ''
+  const fallback = import.meta.env.MODE === 'prod' ? 'http://localhost:5001' : ''
   return new HttpApiClient(import.meta.env.VITE_API_URL ?? fallback)
 }
 

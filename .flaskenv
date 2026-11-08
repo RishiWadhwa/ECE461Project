@@ -1,2 +1,0 @@
-FLASK_APP=backend.app
-FLASK_RUN_PORT=5001

@@ -29,4 +29,5 @@ app = create_app()
 
 
 if __name__ == "__main__":
-    app.run(debug=os.environ.get("FLASK_DEBUG") == "1")
+    # MacOS' AirPlay service uses port 5000, so we use 5001 for Flask. The frontend is on 5173 (normal and not unusually...).
+    app.run(host="127.0.0.1", port=5001, debug=os.environ.get("FLASK_DEBUG") == "1")
