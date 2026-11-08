@@ -16,7 +16,15 @@ MAX_BODY_BYTES = 16 * 1024
 
 
 def create_app() -> Flask:
-    app = Flask(__name__)
+    # In the Docker image, STATIC_DIR is the built frontend, so this one server hosts both the page and the API.
+    # When it is unset (local development), nothing changes: Vite serves the page on port 5173.
+    static_dir = os.environ.get("STATIC_DIR")
+    if static_dir:
+        app = Flask(__name__, static_folder=static_dir, static_url_path="")
+        app.add_url_rule("/", "index", lambda: app.send_static_file("index.html"))
+    else:
+        app = Flask(__name__)
+    
     CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
     app.config["MAX_CONTENT_LENGTH"] = MAX_BODY_BYTES
     register_error_handlers(app)
