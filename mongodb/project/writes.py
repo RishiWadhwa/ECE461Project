@@ -1,8 +1,19 @@
 from datetime import datetime, timezone
 
+from bson import Int32
 from pymongo import ReturnDocument
 
-from ..connection import projects
+from ..connection import hardware, projects
+
+
+def _checked_out_zeros() -> dict[str, Int32]:
+    """One 0 per hardware set, so a new project holds nothing."""
+    checked_out: dict[str, Int32] = {}
+    for doc in hardware().find({}, {"hardwareId": 1, "_id": 0}):
+        hardware_id = doc.get("hardwareId")
+        if isinstance(hardware_id, str):
+            checked_out[hardware_id] = Int32(0)
+    return checked_out
 
 
 def insert_project(user_id: str, project_id: str, description: str, name: str | None = None) -> dict:
@@ -14,6 +25,7 @@ def insert_project(user_id: str, project_id: str, description: str, name: str | 
             "description": description,
             "ownerId": user_id,
             "members": [user_id],
+            "checkedOut": _checked_out_zeros(),
             "createdAt": datetime.now(timezone.utc),
         }
     )
