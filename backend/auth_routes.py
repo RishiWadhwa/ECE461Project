@@ -58,10 +58,14 @@ def add_user():
         raise ApiError(400, "A password is required.")
 
     user_id = user_id.strip()
-    if len(user_id) < 3:
-        raise ApiError(400, "user ID must be at least 3 characters.")
+    if len(user_id) < 5:
+        raise ApiError(400, "user ID must be at least 5 characters.")
+    if len(user_id) > 16:
+        raise ApiError(400, "userID must be at most 16 characters.")
     if len(password) < 8:
         raise (ApiError(400, "Passwords must be at least 8 characters."))
+    if len(password) > 64:
+        raise (ApiError(400, "Passwords must be at most 64 characters."))
 
     users = get_db()["users"]
 
