@@ -1,4 +1,3 @@
-from bson import Int32
 from pymongo import ReturnDocument
 
 from ..connection import hardware, projects
@@ -54,7 +53,7 @@ def _add_project_units(project_id: str, hardware_id: str, quantity: int, session
         fits.append({field: {"$exists": False}})
     return projects().find_one_and_update(
         {"projectId": project_id, "$or": fits},
-        {"$inc": {field: Int32(quantity)}},
+        {"$inc": {field: quantity}},
         return_document=ReturnDocument.AFTER,
         session=session,
     )
@@ -64,7 +63,7 @@ def _remove_project_units(project_id: str, hardware_id: str, quantity: int, sess
     field = f"checkedOut.{hardware_id}"
     return projects().find_one_and_update(
         {"projectId": project_id, field: {"$gte": quantity}},
-        {"$inc": {field: Int32(-quantity)}},
+        {"$inc": {field: -quantity}},
         return_document=ReturnDocument.AFTER,
         session=session,
     )

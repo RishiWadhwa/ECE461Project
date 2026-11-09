@@ -1,18 +1,17 @@
 from datetime import datetime, timezone
 
-from bson import Int32
 from pymongo import ReturnDocument
 
 from ..connection import hardware, projects
 
 
-def _checked_out_zeros() -> dict[str, Int32]:
+def _checked_out_zeros() -> dict[str, int]:
     """One 0 per hardware set, so a new project holds nothing."""
-    checked_out: dict[str, Int32] = {}
+    checked_out: dict[str, int] = {}
     for doc in hardware().find({}, {"hardwareId": 1, "_id": 0}):
         hardware_id = doc.get("hardwareId")
         if isinstance(hardware_id, str):
-            checked_out[hardware_id] = Int32(0)
+            checked_out[hardware_id] = 0
     return checked_out
 
 
