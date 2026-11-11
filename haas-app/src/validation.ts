@@ -140,7 +140,7 @@ function checkQuantity(value: Integer, max: Integer): string | null {
  * @returns This function returns "<label> is required!" if the value is empty, or null if it is filled in.
  */
 function checkRequired(value: string, label: string): string | null {
-    if (value.length === 0) {
+    if (value.trim().length === 0) {
         return `${label} is required!`
     }
     return null
