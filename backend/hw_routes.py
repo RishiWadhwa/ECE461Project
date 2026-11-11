@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from .errors import ApiError
 from mongodb.connection import get_db
-from pymongo import ReturnDocument
+from mongodb.hardware.stock import release, reserve
 
 bp = Blueprint("hardware", __name__)
 
@@ -61,20 +61,16 @@ def check_out():
     if (user_id != project.get("ownerId")) and (user_id not in project.get("members", [])):
         raise ApiError(403, f"You are not a member of project {project_id}")
 
-    hardware_doc = db["hardware"].find_one({"name": hw_set}, {"_id": 0, "hardwareId": 1, "name": 1, "capacity": 1, "available": 1, "checkedOut": 1})
+    hardware_doc = db["hardware"].find_one({"name": hw_set}, {"_id": 0, "hardwareId": 1, "name": 1})
 
     if hardware_doc is None:
         raise ApiError(404, "Hardware set not found")
 
-    upd_hw = db["hardware"].find_one_and_update(
-        {"hardwareId": hardware_doc["hardwareId"], "available": {"$gte": quantity}}, 
-        {"$inc": {"available": -quantity, "checkedOut": quantity}},
-        return_document=ReturnDocument.AFTER,
-        projection={ "_id": 0, "hardwareId": 1, "name": 1, "capacity": 1, "available": 1, "checkedOut": 1}, 
-    )
-
-    if upd_hw is None:
+    updated = reserve(hardware_doc["hardwareId"], quantity, project_id)
+    if updated is None:
         raise ApiError(409, "Not enough hardware available")
+
+    return jsonify(_hardware_response(updated))
 
 
 @bp.post("/check_in")
@@ -117,21 +113,22 @@ def check_in():
 
     hardware_doc = db["hardware"].find_one(
         {"name": hw_set},
-        {"_id": 0, "hardwareId": 1, "name": 1, "capacity": 1, "available": 1, "checkedOut": 1},
+        {"_id": 0, "hardwareId": 1, "name": 1},
     )
 
     if hardware_doc is None:
         raise ApiError(404, "Hardware set not found")
 
-    upd_hw = db["hardware"].find_one_and_update(
-        {"hardwareId": hardware_doc["hardwareId"], "checkedOut": {"$gte": quantity}},
-        {"$inc": {"available": quantity, "checkedOut": -quantity}},
-        
-        return_document=ReturnDocument.AFTER,
-        projection={"_id": 0, "name": 1, "capacity": 1, "available": 1},
-    )
+    updated = release(hardware_doc["hardwareId"], quantity, project_id)
+    if updated is None:
+        raise ApiError(409, "This project does not have that many units checked out")
 
-    if upd_hw is None:
-        raise ApiError(409, "Not enough hardware is currently checked out")
+    return jsonify(_hardware_response(updated))
 
-    return jsonify(upd_hw)
+
+def _hardware_response(document: dict) -> dict:
+    return {
+        "name": document["name"],
+        "capacity": document["capacity"],
+        "available": document["available"],
+    }
