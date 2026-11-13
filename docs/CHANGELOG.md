@@ -2,6 +2,40 @@
 
 Frontend changes to `haas-app/`, newest first. Converted from `docs/notes.txt`.
 
+## 2026-11-07 — Switch between the mock and Flask with `npm run dev:prod`
+
+### Changed
+- **`api.ts` is now a small class hierarchy** (design and reasons in `docs/api-roadmap.md` section 12):
+  - `ApiClient` is an abstract base class. It owns every route, the status → `ApiError` mapping, and the
+    status light. Subclasses only implement `send()`, which delivers one request.
+  - `HttpApiClient` sends with `fetch` to a base URL.
+  - `createApi()` picks the base URL from the Vite mode, and `export const api = createApi()`, so no
+    component changed.
+  - Routes are arrow-function fields so `const call = api.checkOut` in `HardwareSetCard` keeps working.
+- **The mock middleware is now switched by mode, not by `VITE_API_URL`.** `vite.config.ts` loads `mockApi()`
+  for every mode except `prod`. The mock itself is unchanged (still Vite middleware, still shared by every tab,
+  still reset when the dev server restarts).
+- An in-browser `MockApiClient` (no middleware) was tried the same day and dropped, to keep shared state
+  across tabs, curl/Postman access, and the real `fetch` path in dev.
+
+### Added
+- `npm run dev:prod` (`vite --mode prod`): mock off, and the app talks to Flask at `http://localhost:5000`, or
+  `VITE_API_URL` if set. Uses Flask's existing CORS setup; no proxy. Production builds use `VITE_API_URL` or
+  the same origin.
+- Tests in `api.test.ts`: `createApi` sends to the same origin in dev/test mode and to `localhost:5000` in prod
+  mode. The existing HTTP tests now create `HttpApiClient('')` directly.
+- Notes on how a separate `haas_dev` database would work (on hold): `docs/api-roadmap.md` section 11.
+
+### Checked
+- `npm test` (134 passing), `npm run lint`, and `npm run build`.
+- Dev server: `/get_all_hw_names` is answered by the mock in `development` mode and not in `prod` mode.
+
+### Known gaps
+- `/join_project` now exists in Flask, so the 2026-10-12 gap below is closed.
+- Backend issues found while wiring this up are listed in `docs/api-roadmap.md` section 12, including
+  `/check_out` returning a 500 (missing `return`) and Flask's `PROJ###` project ID rule not matching the frontend's.
+- `dev:prod` was not run end to end against Flask yet.
+
 ## 2026-10-12
 
 ### Changed

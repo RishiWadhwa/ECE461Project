@@ -135,3 +135,26 @@ describe('validators return the checked value', () => {
     expect(validateProjectID('project01')).toBe('project01')
   })
 })
+
+describe('blank input counts as missing', () => {
+  it('rejects a whitespace-only password on sign-up', () => {
+    expect(caught(() => validateCreds('testuser', '        ', 'signUp')).messageFor('password'))
+      .toBe('Password is required!')
+  })
+
+  it('rejects whitespace-only fields on sign-in', () => {
+    const err = caught(() => validateCreds('   ', '   ', 'signIn'))
+    expect(err.messageFor('userID')).toBe('UserID is required!')
+    expect(err.messageFor('password')).toBe('Password is required!')
+  })
+
+  it('rejects a whitespace-only project ID', () => {
+    expect(caught(() => validateProjectID('    ')).messageFor('projectID')).toBe('Project ID is required!')
+  })
+
+  // Only entirely blank input is rejected: a password may contain spaces, including at either end.
+  it('accepts a password with spaces inside and around it', () => {
+    expect(() => validateCreds('testuser', '  pass word  ', 'signUp')).not.toThrow()
+    expect(validateCreds('testuser', '  pass word  ', 'signUp').password).toBe('  pass word  ')
+  })
+})

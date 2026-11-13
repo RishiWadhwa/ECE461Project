@@ -53,7 +53,8 @@ A deviation from this stack needs TA sign-off first.
 
 Frontend (run from `haas-app/`):
 
-- `npm run dev` — dev server; uses the in-memory mock API (`mock-api.ts` + `mock-db.ts`) unless `VITE_API_URL` is set
+- `npm run dev` — dev server with the in-memory mock API as Vite middleware (`mock-api.ts` + `mock-db.ts`); no backend needed
+- `npm run dev:prod` — dev server against Flask (`HttpApiClient`, `http://localhost:5001` unless `VITE_API_URL` is set); start Flask first. Writes to whatever database Flask's `MONGO_DB` names (`haas` by default)
 - `npm test` — run the vitest suites once (`src/*.test.ts`, `mock-api.test.ts`)
 - `npm run test:watch` — vitest in watch mode
 - `npx vitest run src/api.test.ts` — run a single test file
@@ -64,7 +65,7 @@ Backend (run from the repo root, not `backend/` — the routes import `mongodb` 
 
 - `python3.12 -m venv .venv && source .venv/bin/activate` — one-time setup; the lab machines' default `python3` is 3.6, which is too old
 - `pip install -r backend/requirements-dev.txt` — runtime deps plus pytest and mongomock (`requirements.txt` alone is the runtime set)
-- `flask --app backend.app run` — dev server on port 5000; add `--debug` for auto-reload
+- `flask --app backend.app run` — dev server on port 5001; add `--debug` for auto-reload
 - `flask --app backend.app routes` — list every registered route
 - `pytest` — run the backend suites (`backend/tests/`, configured in `pytest.ini`)
 - `pytest backend/tests/test_auth.py` — run a single test file; add `-k <name>` for a single test

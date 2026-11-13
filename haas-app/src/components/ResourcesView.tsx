@@ -80,6 +80,8 @@ export default function ResourcesView({ projectID, userID, onBack }: Props) {
 
       {error && <div className="msg msg-error">✕ {error}</div>}
       {loading && <div className="none-label">Loading hardware…</div>}
+      {/* The server answered with an empty list: usually the database has no hardware documents yet. */}
+      {!loading && !error && sets.length === 0 && <div className="none-label">No hardware sets found.</div>}
 
       <div className="pair-grid hw-grid">
         {sets.map((s) => (

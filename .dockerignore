@@ -1,0 +1,18 @@
+# Files Docker never copies into the image. Secrets first: every .env file stays out,
+# including .env.example, so no connection string can end up inside an image.
+.env
+.env.*
+
+# Local environments and generated files (the image installs and builds its own).
+.venv/
+**/__pycache__/
+**/node_modules/
+haas-app/dist/
+*.log
+
+# Not needed to run the app.
+.git/
+.github/
+docs/
+scripts/
+backend/tests/

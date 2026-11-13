@@ -1,5 +1,5 @@
 // Dev-only mock of the REST API, backed by the in-memory tables in mock-db.ts. NOT A FINAL MODULE.
-// Enabled by vite.config.ts when VITE_API_URL is unset. Error cases follow docs/api_calls.pdf so the
+// Enabled by vite.config.ts for `npm run dev`; `npm run dev:prod` (mode "prod") leaves it off. Error cases follow docs/api_calls.pdf so the
 // frontend's error handling can be exercised before the Flask backend exists.
 //
 // Simulated outage (for testing the offline status light):
