@@ -7,7 +7,7 @@
 //   HttpApiClient  - send() uses fetch against a base URL.
 // createApi() reads the Vite mode once and picks the base URL:
 //   npm run dev       -> '' (same origin), answered by the mock middleware in mock-api.ts
-//   npm run dev:prod  -> Flask at http://localhost:5000
+//   npm run dev:prod  -> Flask at http://localhost:5001
 // so there is no mock/real switch anywhere else in the frontend.
 // The routes, request shapes, and statuses below are the contract in docs/api-roadmap.md (section 2).
 //
@@ -251,7 +251,7 @@ export abstract class ApiClient {
 
 /**
  * Talks to the Flask backend over HTTP. `base` is the start of every URL: '' for same origin, or e.g.
- * 'http://localhost:5000'. Adds JSON headers and a REQUEST_TIMEOUT_MS timeout.
+ * 'http://localhost:5001'. Adds JSON headers and a REQUEST_TIMEOUT_MS timeout.
  */
 export class HttpApiClient extends ApiClient {
   private readonly base: string

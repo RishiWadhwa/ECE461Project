@@ -41,6 +41,7 @@ def hardware(db):
             "capacity": 100,
             "available": 100,
             "checkedOut": 0,
+            "status": "available",
         })
 
 class Api:
