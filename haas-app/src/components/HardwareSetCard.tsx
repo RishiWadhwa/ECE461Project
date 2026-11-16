@@ -6,6 +6,7 @@ import { ApiError, NumberFormatError, ValidationError, errorMessage, type Number
 import { validateQuantity } from '../validation.ts'
 import { Integer } from '../math.ts'
 import { enqueue } from '../session.ts'
+import { OFFLINE_HINT, useConnectionStatus } from '../connection.ts'
 
 interface Props {
   hwSet: HardwareSet
@@ -45,6 +46,7 @@ function stockLevel(available: number, percent: number): Stock {
 export default function HardwareSetCard({ hwSet, projectID, userID, onChange }: Props) {
   const [qty, setQty] = useState('')
   const [busy, setBusy] = useState(false)
+  const offline = useConnectionStatus() === 'offline'
   const [message, setMessage] = useState<{ kind: 'ok' | 'warn' | 'error'; text: string } | null>(null)
 
   const pct = hwSet.capacity > 0 ? (hwSet.available / hwSet.capacity) * 100 : 0
@@ -168,8 +170,8 @@ export default function HardwareSetCard({ hwSet, projectID, userID, onChange }: 
         </div>
 
         <div className="btn-row">
-          <button className="btn" disabled={busy || !qty.trim() || hwSet.available <= 0}>Check Out</button>
-          <button type="button" className="btn btn-ghost" disabled={busy || !qty.trim()} onClick={() => submit('in')}>Check In</button>
+          <button className="btn" disabled={busy || offline || !qty.trim() || hwSet.available <= 0} title={offline ? OFFLINE_HINT : undefined}>Check Out</button>
+          <button type="button" className="btn btn-ghost" disabled={busy || offline || !qty.trim()} title={offline ? OFFLINE_HINT : undefined} onClick={() => submit('in')}>Check In</button>
         </div>
       </form>
 

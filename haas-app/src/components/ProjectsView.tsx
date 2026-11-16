@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import { api } from '../api.ts'
 import type { Project } from '../api.ts'
 import { ApiError, errorMessage } from '../errors.ts'
-import { useConnectionStatus } from '../connection.ts'
+import { OFFLINE_HINT, useConnectionStatus } from '../connection.ts'
 import { validateProjectID } from '../validation.ts'
 import { filterProjects } from '../projectList.ts'
 import type { ProjectSort } from '../projectList.ts'
@@ -21,6 +21,7 @@ export default function ProjectsView({ userID, onOpen }: Props) {
   const [loading, setLoading] = useState(true)
   const [listError, setListError] = useState<string | null>(null)
   const connection = useConnectionStatus()
+  const offline = connection === 'offline'
 
   const [newID, setNewID] = useState('')
   const [newName, setNewName] = useState('')
@@ -180,7 +181,7 @@ export default function ProjectsView({ userID, onOpen }: Props) {
               <input id="p-desc" className="form-input" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} />
             </div>
             {createError && <div className="msg msg-error" style={{ marginBottom: 12 }}>✕ {createError}</div>}
-            <button className="btn btn-block" disabled={busy || !newID.trim() || !newName.trim()}>
+            <button className="btn btn-block" disabled={busy || offline || !newID.trim() || !newName.trim()} title={offline ? OFFLINE_HINT : undefined}>
               Create Project
             </button>
           </form>
@@ -192,7 +193,7 @@ export default function ProjectsView({ userID, onOpen }: Props) {
               <input id="j-id" className="form-input" value={joinID} onChange={(e) => setJoinID(e.target.value)} />
             </div>
             {joinError && <div className="msg msg-error" style={{ marginBottom: 12 }}>✕ {joinError}</div>}
-            <button className="btn btn-block" disabled={busy || !joinID.trim()}>
+            <button className="btn btn-block" disabled={busy || offline || !joinID.trim()} title={offline ? OFFLINE_HINT : undefined}>
               Join Project
             </button>
           </form>

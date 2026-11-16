@@ -7,6 +7,9 @@ export type ConnectionStatus = 'online' | 'offline'
 
 export const PROBE_INTERVAL_MS = 5000
 
+/** Tooltip for a write button (check out, create, join, ...) that is disabled while the server is unreachable. */
+export const OFFLINE_HINT = 'Unavailable while the server is unreachable'
+
 let status: ConnectionStatus = 'online'
 let probe: (() => Promise<unknown>) | null = null
 let probeTimer: ReturnType<typeof setInterval> | null = null
