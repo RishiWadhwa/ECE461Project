@@ -43,6 +43,43 @@ export function enqueue<T>(key: string, request: () => Promise<T>): Promise<T> {
 export function clear(): void {
   generation++
   queue.clear()
+  clearNav()
+}
+
+// Where the user is, kept in sessionStorage so a page refresh does not sign them out. Only the userID and
+// projectID are stored, never a password or hardware totals. There is no session token yet (roadmap section 10),
+// so this is a convenience, not authentication. sessionStorage is per tab and gone when the tab closes.
+const NAV_KEY = 'haas.nav'
+
+export interface Nav {
+  userID: string | null
+  projectID: string | null
+}
+
+/** Saves where the user is. Storage can throw (private window, blocked site data); the app then just forgets on refresh. */
+export function saveNav(nav: Nav): void {
+  try {
+    sessionStorage.setItem(NAV_KEY, JSON.stringify(nav))
+  } catch { /* shortcut: no fallback store, refresh signs out again */ }
+}
+
+/** Reads what saveNav stored. Anything missing, malformed, or unreadable means signed out. */
+export function loadNav(): Nav {
+  try {
+    const raw = JSON.parse(sessionStorage.getItem(NAV_KEY) ?? 'null')
+    const userID = typeof raw?.userID === 'string' && raw.userID ? raw.userID : null
+    // A project without a user would skip Sign In, so it only counts alongside a userID.
+    const projectID = userID && typeof raw.projectID === 'string' && raw.projectID ? raw.projectID : null
+    return { userID, projectID }
+  } catch {
+    return { userID: null, projectID: null }
+  }
+}
+
+function clearNav(): void {
+  try {
+    sessionStorage.removeItem(NAV_KEY)
+  } catch { /* nothing stored that we can reach */ }
 }
 
 /**

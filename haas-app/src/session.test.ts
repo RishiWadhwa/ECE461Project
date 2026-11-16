@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest'
-import { clear, enqueue, pendingKeys } from './session.ts'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { clear, enqueue, loadNav, pendingKeys, saveNav } from './session.ts'
 
 /** A promise plus the functions that settle it, so a test decides when each request finishes. */
 function deferred<T>() {
@@ -61,5 +61,44 @@ describe('clear', () => {
     await expect(a).resolves.toBe('a')
     await expect(b).rejects.toThrow('signed out')
     expect(secondRan).toBe(false)
+  })
+})
+
+describe('saveNav / loadNav', () => {
+  /** A minimal in-memory stand-in: vitest runs in node, which has no sessionStorage. */
+  const fakeStorage = () => {
+    const m = new Map<string, string>()
+    return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k) }
+  }
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('round-trips the user and project', () => {
+    vi.stubGlobal('sessionStorage', fakeStorage())
+    saveNav({ userID: 'alice', projectID: 'PROJ0042' })
+    expect(loadNav()).toEqual({ userID: 'alice', projectID: 'PROJ0042' })
+  })
+
+  it('clear() forgets it, so a refresh after sign-out shows Sign In', () => {
+    vi.stubGlobal('sessionStorage', fakeStorage())
+    saveNav({ userID: 'alice', projectID: null })
+    clear()
+    expect(loadNav()).toEqual({ userID: null, projectID: null })
+  })
+
+  it('ignores a project that has no user, and malformed data', () => {
+    const s = fakeStorage()
+    vi.stubGlobal('sessionStorage', s)
+    saveNav({ userID: null, projectID: 'PROJ0042' })
+    expect(loadNav()).toEqual({ userID: null, projectID: null })
+    s.setItem('haas.nav', '{not json')
+    expect(loadNav()).toEqual({ userID: null, projectID: null })
+  })
+
+  it('works without storage: nothing throws and the user is signed out', () => {
+    const broken = { getItem: () => { throw new Error('blocked') }, setItem: () => { throw new Error('blocked') }, removeItem: () => { throw new Error('blocked') } }
+    vi.stubGlobal('sessionStorage', broken)
+    expect(() => saveNav({ userID: 'alice', projectID: null })).not.toThrow()
+    expect(loadNav()).toEqual({ userID: null, projectID: null })
+    expect(() => clear()).not.toThrow()
   })
 })
