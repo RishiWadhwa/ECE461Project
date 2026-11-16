@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { FormEvent } from 'react'
 import { api } from '../api.ts'
 import type { HardwareSet } from '../api.ts'
 import { ApiError, NumberFormatError, ValidationError, errorMessage, type NumberFormatReason } from '../errors.ts'
@@ -74,6 +75,22 @@ export default function HardwareSetCard({ hwSet, projectID, userID, onChange }: 
     }
   }
 
+  // + and - only edit the text. submit() still runs every check, so the quantity rules stay in one place.
+  // A decimal like 2.5 moves to the next whole number in that direction (+ gives 3, - gives 2). Text that is not a number counts as 0.
+  // The result stays between 0 and the units available.
+  const step = (delta: 1 | -1) => {
+    const text = qty.trim()
+    const current = /^-?([0-9]+[.]?[0-9]*|[.][0-9]+)$/.test(text) ? Number(text) : 0
+    const next = delta > 0 ? Math.floor(current) + 1 : Math.ceil(current) - 1
+    setQty(String(delta > 0 ? Math.min(hwSet.available, Math.max(0, next)) : Math.max(0, next)))
+  }
+
+  // Enter in the quantity box checks out (the Check In button is type="button", so it never submits the form).
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault()
+    submit('out')
+  }
+
   return (
     <div className="card hw-card">
       <div className="card-title">{hwSet.name}</div>
@@ -103,22 +120,37 @@ export default function HardwareSetCard({ hwSet, projectID, userID, onChange }: 
         <div className="meter-fill" style={{ width: `${pct}%` }} />
       </div>
 
-      <div className="form-row" style={{ marginTop: 18 }}>
-        <label className="form-label" htmlFor={`qty-${hwSet.name}`}>Quantity</label>
-        <input
-          id={`qty-${hwSet.name}`}
-          className="form-input"
-          inputMode="numeric"
-          placeholder="0"
-          value={qty}
-          onChange={(e) => setQty(e.target.value)}
-        />
-      </div>
+      <form onSubmit={onSubmit}>
+        <div className="form-row" style={{ marginTop: 18 }}>
+          <label className="form-label" htmlFor={`qty-${hwSet.name}`}>Quantity</label>
+          <div className="qty-row">
+            <button type="button" className="btn btn-ghost btn-sm" aria-label="Decrease quantity" disabled={busy} onClick={() => step(-1)}>−</button>
+            <input
+              id={`qty-${hwSet.name}`}
+              className="form-input"
+              inputMode="numeric"
+              placeholder="0"
+              value={qty}
+              onChange={(e) => setQty(e.target.value)}
+            />
+            <button type="button" className="btn btn-ghost btn-sm" aria-label="Increase quantity" disabled={busy} onClick={() => step(1)}>+</button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              title="Fill in every available unit (the most you can check out)"
+              disabled={busy || hwSet.available <= 0}
+              onClick={() => setQty(String(hwSet.available))}
+            >
+              Max
+            </button>
+          </div>
+        </div>
 
-      <div className="btn-row">
-        <button className="btn" disabled={busy || !qty.trim()} onClick={() => submit('out')}>Check Out</button>
-        <button className="btn btn-ghost" disabled={busy || !qty.trim()} onClick={() => submit('in')}>Check In</button>
-      </div>
+        <div className="btn-row">
+          <button className="btn" disabled={busy || !qty.trim()}>Check Out</button>
+          <button type="button" className="btn btn-ghost" disabled={busy || !qty.trim()} onClick={() => submit('in')}>Check In</button>
+        </div>
+      </form>
 
       {message && (
         <div className={`msg msg-${message.kind}`} style={{ marginTop: 12 }}>
