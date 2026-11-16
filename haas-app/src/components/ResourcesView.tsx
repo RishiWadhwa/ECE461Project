@@ -23,6 +23,8 @@ export default function ResourcesView({ projectID, userID, onBack }: Props) {
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
   const connection = useConnectionStatus()
   const alive = useRef(true)
+  const [copy, setCopy] = useState<'idle' | 'copied' | 'failed'>('idle')
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   // Bumped whenever a card reports its own result, so a slower reload that started earlier cannot overwrite it.
   const version = useRef(0)
 
@@ -30,8 +32,22 @@ export default function ResourcesView({ projectID, userID, onBack }: Props) {
     alive.current = true
     return () => {
       alive.current = false
+      clearTimeout(copyTimer.current)
     }
   }, [])
+
+  // Copies the project ID so it can be shared with someone who needs to join. The clipboard can be refused
+  // (insecure page, permission denied), so a failure shows the ID to copy by hand.
+  const copyID = async () => {
+    try {
+      await navigator.clipboard.writeText(projectID)
+      setCopy('copied')
+    } catch {
+      setCopy('failed')
+    }
+    clearTimeout(copyTimer.current)
+    copyTimer.current = setTimeout(() => setCopy('idle'), 4000)
+  }
 
   // Members and details of the project the user is working under.
   useEffect(() => {
@@ -117,6 +133,11 @@ export default function ResourcesView({ projectID, userID, onBack }: Props) {
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-title">WORKING UNDER · {project.name || project.projectID}</div>
           <div className="project-desc">{project.description}</div>
+          <div className="refresh-row">
+            <button className="btn btn-ghost btn-sm" onClick={copyID}>Copy ID</button>
+            {copy === 'copied' && <span className="msg-ok">✓ Copied {projectID}</span>}
+            {copy === 'failed' && <span className="msg-warn">! Could not copy. The ID is {projectID}</span>}
+          </div>
           <div className="social-section-label" style={{ marginTop: 12 }}>Members</div>
           <div className="member-list">
             {project.members.map((m) => (
