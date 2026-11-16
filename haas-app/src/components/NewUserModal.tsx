@@ -6,10 +6,13 @@ import { validateCreds } from '../validation.ts'
 
 interface Props {
   onClose: () => void
+  // The account was created and the user is now signed in.
+  onSignedIn: (userID: string) => void
+  // The account was created but the automatic sign-in failed, so the user signs in by hand.
   onCreated: (userID: string) => void
 }
 
-export default function NewUserModal({ onClose, onCreated }: Props) {
+export default function NewUserModal({ onClose, onSignedIn, onCreated }: Props) {
   const [userID, setUserID] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -22,7 +25,13 @@ export default function NewUserModal({ onClose, onCreated }: Props) {
     try {
       const creds = validateCreds(userID.trim(), password, 'signUp')
       await api.addUser(creds)
-      onCreated(creds.userID)
+      try {
+        const res = await api.login(validateCreds(creds.userID, creds.password, 'signIn'))
+        onSignedIn(res.userID ?? creds.userID)
+      } catch {
+        // The account exists now, so do not report an error: send them to Sign In with the userID filled in.
+        onCreated(creds.userID)
+      }
     } catch (err) {
       setError(errorMessage(err, 'Could not create user'))
     } finally {

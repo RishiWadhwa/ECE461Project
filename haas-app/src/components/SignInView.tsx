@@ -15,11 +15,13 @@ export default function SignInView({ onSignedIn }: Props) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showNewUser, setShowNewUser] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     setBusy(true)
     setError(null)
+    setNotice(null)
     try {
       const creds = validateCreds(userID.trim(), password, 'signIn')
       const res = await api.login(creds)
@@ -60,6 +62,7 @@ export default function SignInView({ onSignedIn }: Props) {
           />
         </div>
 
+        {notice && <div className="msg msg-ok">✓ {notice}</div>}
         {error && <div className="msg msg-error">✕ {error}</div>}
 
         <button className="btn btn-block" disabled={busy || !userID.trim() || !password}>
@@ -73,10 +76,12 @@ export default function SignInView({ onSignedIn }: Props) {
       {showNewUser && (
         <NewUserModal
           onClose={() => setShowNewUser(false)}
+          onSignedIn={onSignedIn}
           onCreated={(id) => {
             setShowNewUser(false)
             setUserID(id)
             setPassword('')
+            setNotice('Account created. Please sign in.')
           }}
         />
       )}
