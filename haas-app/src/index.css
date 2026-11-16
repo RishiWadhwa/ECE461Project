@@ -18,6 +18,7 @@
   --text-muted:   #7a7472;
   --text-dim:     #4a4644;
   --green:        #3ecf6e;
+  --yellow:       #e6c440;
   --red:          #e85050;
   --shadow:       0 4px 24px rgba(0,0,0,0.6);
   --radius:       10px;
@@ -320,6 +321,20 @@ html, body, #root {
 }
 .meter-track { height: 4px; background: var(--surface3); border-radius: 2px; overflow: hidden; }
 .meter-fill { height: 100%; background: linear-gradient(90deg, var(--orange), var(--orange-light)); transition: width 0.3s ease; }
+/* Stock steps (stockLevel in HardwareSetCard): ok is green, then yellow, orange, red. They color the Available
+   number and the warning text. The bar keeps the brand orange until it is low, and pulses when critical. */
+.stock-medium { color: var(--yellow); }
+.stock-low { color: var(--orange-light); }
+.stock-critical, .stock-empty { color: var(--red); }
+.meter-medium .meter-fill { background: var(--yellow); }
+.meter-low .meter-fill { background: var(--orange-light); }
+.meter-critical .meter-fill { background: var(--red); animation: meter-pulse 1.4s ease-in-out infinite; }
+/* Empty: the whole track turns red, since a zero-width bar would be invisible. */
+.meter-empty { background: rgba(232, 80, 80, 0.45); }
+@keyframes meter-pulse { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .meter-critical .meter-fill { animation: none; } }
+.stock-note { font-family: 'JetBrains Mono', monospace; font-size: 12px; margin-top: 8px; }
+.refresh-row { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
 
 /* ── Modal ── */
 .modal-backdrop {

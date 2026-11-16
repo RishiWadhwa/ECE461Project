@@ -23,12 +23,32 @@ const QUANTITY_FORMAT_MESSAGES: Record<NumberFormatReason, string> = {
   outOfRange: 'Quantity is too large!',
 }
 
+// How much of the set is still available, in steps. Each step colors the Available number and the bar, and every
+// step except "ok" shows a warning naming the percentage.
+type Stock = 'ok' | 'medium' | 'low' | 'critical' | 'empty'
+
+const STOCK_WARNINGS: Record<Exclude<Stock, 'ok'>, string> = {
+  medium: '! Under 50% available',
+  low: '! Under 25% available',
+  critical: '✕ Under 10% available',
+  empty: '✕ All units are checked out',
+}
+
+function stockLevel(available: number, percent: number): Stock {
+  if (available <= 0) return 'empty'
+  if (percent < 10) return 'critical'
+  if (percent < 25) return 'low'
+  if (percent < 50) return 'medium'
+  return 'ok'
+}
+
 export default function HardwareSetCard({ hwSet, projectID, userID, onChange }: Props) {
   const [qty, setQty] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ kind: 'ok' | 'warn' | 'error'; text: string } | null>(null)
 
   const pct = hwSet.capacity > 0 ? (hwSet.available / hwSet.capacity) * 100 : 0
+  const stock = stockLevel(hwSet.available, pct)
 
   const submit = async (kind: 'out' | 'in') => {
     setBusy(true)
@@ -105,7 +125,7 @@ export default function HardwareSetCard({ hwSet, projectID, userID, onChange }: 
         </div>
         <div>
           <div className="social-section-label">Available</div>
-          <div className="hw-number hw-available">{hwSet.available}</div>
+          <div className={'hw-number hw-available stock-' + stock}>{hwSet.available}</div>
         </div>
         {/* Future feature (after the checkpoint): units this project holds, from a backend endpoint
             that does not exist yet (e.g. a checkedOut field on get_hw_info for the current project).
@@ -116,9 +136,10 @@ export default function HardwareSetCard({ hwSet, projectID, userID, onChange }: 
         */}
       </div>
 
-      <div className="meter-track">
+      <div className={`meter-track meter-${stock}`}>
         <div className="meter-fill" style={{ width: `${pct}%` }} />
       </div>
+      {stock !== 'ok' && <div className={'stock-note stock-' + stock}>{STOCK_WARNINGS[stock]}</div>}
 
       <form onSubmit={onSubmit}>
         <div className="form-row" style={{ marginTop: 18 }}>
@@ -147,7 +168,7 @@ export default function HardwareSetCard({ hwSet, projectID, userID, onChange }: 
         </div>
 
         <div className="btn-row">
-          <button className="btn" disabled={busy || !qty.trim()}>Check Out</button>
+          <button className="btn" disabled={busy || !qty.trim() || hwSet.available <= 0}>Check Out</button>
           <button type="button" className="btn btn-ghost" disabled={busy || !qty.trim()} onClick={() => submit('in')}>Check In</button>
         </div>
       </form>
