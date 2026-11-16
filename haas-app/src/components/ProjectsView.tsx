@@ -4,9 +4,21 @@ import { api } from '../api.ts'
 import type { Project } from '../api.ts'
 import { ApiError, errorMessage } from '../errors.ts'
 import { OFFLINE_HINT, useConnectionStatus } from '../connection.ts'
-import { validateProjectID } from '../validation.ts'
+import { projectIDRules, validateProjectID } from '../validation.ts'
+import FieldHints from './FieldHints.tsx'
+import { useHints } from '../useHints.ts'
 import { filterProjects } from '../projectList.ts'
 import type { ProjectSort } from '../projectList.ts'
+
+// Name and description take anything, so their hints are neutral lines (no met/not-met state) instead of rules.
+const NAME_HINTS = [
+  { label: 'No restrictions, just do not leave it blank' },
+  { label: 'Example: "Project Definitely Not Skynet"' },
+]
+const DESC_HINTS = [
+  { label: 'No requirements or restrictions (optional)' },
+  { label: 'Example: "We asked the hardware nicely. It said yes."' },
+]
 
 interface Props {
   userID: string
@@ -31,6 +43,12 @@ export default function ProjectsView({ userID, onOpen }: Props) {
   const [joinError, setJoinError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [query, setQuery] = useState('')
+  const newRules = projectIDRules(newID.trim())
+  const joinRules = projectIDRules(joinID.trim())
+  const newHints = useHints(newID.trim(), newRules)
+  const nameHints = useHints(newName, NAME_HINTS)
+  const descHints = useHints(newDesc, DESC_HINTS)
+  const joinHints = useHints(joinID.trim(), joinRules)
   const [sort, setSort] = useState<ProjectSort>('name')
 
   const refresh = async () => {
@@ -170,15 +188,24 @@ export default function ProjectsView({ userID, onOpen }: Props) {
             <div className="card-title">CREATE PROJECT</div>
             <div className="form-row">
               <label className="form-label" htmlFor="p-name">Name</label>
-              <input id="p-name" className="form-input" value={newName} onChange={(e) => setNewName(e.target.value)} />
+              <div>
+                <input id="p-name" className="form-input" value={newName} onChange={(e) => setNewName(e.target.value)} aria-describedby="p-name-hints" {...nameHints.bind} />
+                <FieldHints id="p-name-hints" hints={NAME_HINTS} open={nameHints.open} />
+              </div>
             </div>
             <div className="form-row">
               <label className="form-label" htmlFor="p-id">Project ID</label>
-              <input id="p-id" className="form-input" value={newID} onChange={(e) => setNewID(e.target.value)} />
+              <div>
+                <input id="p-id" className="form-input" value={newID} onChange={(e) => setNewID(e.target.value)} aria-describedby="p-id-hints" {...newHints.bind} />
+                <FieldHints id="p-id-hints" hints={newRules} open={newHints.open} />
+              </div>
             </div>
             <div className="form-row">
               <label className="form-label" htmlFor="p-desc">Description</label>
-              <input id="p-desc" className="form-input" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} />
+              <div>
+                <input id="p-desc" className="form-input" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} aria-describedby="p-desc-hints" {...descHints.bind} />
+                <FieldHints id="p-desc-hints" hints={DESC_HINTS} open={descHints.open} />
+              </div>
             </div>
             {createError && <div className="msg msg-error" style={{ marginBottom: 12 }}>✕ {createError}</div>}
             <button className="btn btn-block" disabled={busy || offline || !newID.trim() || !newName.trim()} title={offline ? OFFLINE_HINT : undefined}>
@@ -190,7 +217,10 @@ export default function ProjectsView({ userID, onOpen }: Props) {
             <div className="card-title">JOIN PROJECT</div>
             <div className="form-row">
               <label className="form-label" htmlFor="j-id">Project ID</label>
-              <input id="j-id" className="form-input" value={joinID} onChange={(e) => setJoinID(e.target.value)} />
+              <div>
+                <input id="j-id" className="form-input" value={joinID} onChange={(e) => setJoinID(e.target.value)} aria-describedby="j-id-hints" {...joinHints.bind} />
+                <FieldHints id="j-id-hints" hints={joinRules} open={joinHints.open} />
+              </div>
             </div>
             {joinError && <div className="msg msg-error" style={{ marginBottom: 12 }}>✕ {joinError}</div>}
             <button className="btn btn-block" disabled={busy || offline || !joinID.trim()} title={offline ? OFFLINE_HINT : undefined}>

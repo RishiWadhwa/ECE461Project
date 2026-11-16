@@ -251,3 +251,47 @@ export function validateProjectID(value: string): ProjectID {
 
     return value.toUpperCase() as ProjectID;
 }
+
+/**
+ * This type is one line of a field's requirements checklist: what is required, and whether the text typed so far meets it.
+ */
+export interface Rule {
+    readonly label: string;
+    readonly met: boolean;
+}
+
+/**
+ * This function lists the userID requirements for the checklist shown while a new userID is typed. It uses the
+ * same limits as checkUserID(), and every rule is met exactly when validateCreds() accepts the userID.
+ * @param value This parameter is the userID typed so far (already trimmed, as the forms do before validating).
+ */
+export function userIDRules(value: string): Rule[] {
+    return [
+        {label: `${MIN_USERID_LENGTH}–${MAX_USERID_LENGTH} characters`, met: value.length >= MIN_USERID_LENGTH && value.length <= MAX_USERID_LENGTH},
+        {label: "Letters and digits only", met: ALLOWED_CHARS.test(value)},
+    ];
+}
+
+/**
+ * This function lists the password requirements, in step with checkPassword(). A password of only spaces
+ * counts as not filled in, the same as in checkRequired().
+ * @param value This parameter is the password typed so far.
+ */
+export function passwordRules(value: string): Rule[] {
+    return [
+        {label: `${MIN_PASSWORD_LENGTH}–${MAX_PASSWORD_LENGTH} characters`, met: value.length >= MIN_PASSWORD_LENGTH && value.length <= MAX_PASSWORD_LENGTH && value.trim().length > 0},
+    ];
+}
+
+/**
+ * This function lists the project ID requirements, in step with checkProjectID() and Flask's _project_id():
+ * "PROJ" then digits, at least 8 characters in all (so PROJ and at least 4 digits).
+ * @param value This parameter is the project ID typed so far (already trimmed).
+ */
+export function projectIDRules(value: string): Rule[] {
+    return [
+        {label: "Starts with PROJ (any letter case)", met: /^PROJ/i.test(value)},
+        {label: "Followed by digits only", met: /^PROJ[0-9]+$/i.test(value)},
+        {label: `At least ${MIN_PROJECT_ID_LENGTH} characters (PROJ and 4 digits)`, met: value.length >= MIN_PROJECT_ID_LENGTH},
+    ];
+}

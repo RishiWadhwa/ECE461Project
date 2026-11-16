@@ -2,7 +2,9 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { api } from '../api.ts'
 import { errorMessage } from '../errors.ts'
-import { validateCreds } from '../validation.ts'
+import { passwordRules, userIDRules, validateCreds } from '../validation.ts'
+import FieldHints from './FieldHints.tsx'
+import { useHints } from '../useHints.ts'
 
 interface Props {
   onClose: () => void
@@ -17,6 +19,10 @@ export default function NewUserModal({ onClose, onSignedIn, onCreated }: Props) 
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const idRules = userIDRules(userID.trim())
+  const pwRules = passwordRules(password)
+  const idHints = useHints(userID.trim(), idRules)
+  const pwHints = useHints(password, pwRules)
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -46,24 +52,34 @@ export default function NewUserModal({ onClose, onSignedIn, onCreated }: Props) 
 
         <div className="form-row">
           <label className="form-label" htmlFor="new-userid">User ID</label>
-          <input
-            id="new-userid"
-            className="form-input"
-            value={userID}
-            onChange={(e) => setUserID(e.target.value)}
-            autoFocus
-          />
+          <div>
+            <input
+              id="new-userid"
+              className="form-input"
+              value={userID}
+              onChange={(e) => setUserID(e.target.value)}
+              aria-describedby="new-userid-hints"
+              autoFocus
+              {...idHints.bind}
+            />
+            <FieldHints id="new-userid-hints" hints={idRules} open={idHints.open} />
+          </div>
         </div>
 
         <div className="form-row">
           <label className="form-label" htmlFor="new-password">Password</label>
-          <input
-            id="new-password"
-            className="form-input"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+          <div>
+            <input
+              id="new-password"
+              className="form-input"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              aria-describedby="new-password-hints"
+              {...pwHints.bind}
+            />
+            <FieldHints id="new-password-hints" hints={pwRules} open={pwHints.open} />
+          </div>
         </div>
 
         {error && <div className="msg msg-error">✕ {error}</div>}

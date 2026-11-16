@@ -2,7 +2,9 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { api } from '../api.ts'
 import { errorMessage } from '../errors.ts'
-import { validateCreds } from '../validation.ts'
+import { passwordRules, userIDRules, validateCreds } from '../validation.ts'
+import FieldHints from './FieldHints.tsx'
+import { useHints } from '../useHints.ts'
 import NewUserModal from './NewUserModal.tsx'
 
 interface Props {
@@ -16,6 +18,12 @@ export default function SignInView({ onSignedIn }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [showNewUser, setShowNewUser] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  // Sign In accepts anything non-empty (older accounts keep working), so these only state the format for new
+  // accounts: neutral lines with no met/not-met state, built from the same rules as sign-up.
+  const idHints = useHints(userID, [])
+  const pwHints = useHints(password, [])
+  const idFormat = userIDRules('').map((r) => ({ label: r.label }))
+  const pwFormat = passwordRules('').map((r) => ({ label: r.label }))
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -41,25 +49,35 @@ export default function SignInView({ onSignedIn }: Props) {
       <form className="form-panel signin-form" onSubmit={submit}>
         <div className="form-row">
           <label className="form-label" htmlFor="userid">User ID</label>
-          <input
-            id="userid"
-            className="form-input"
-            value={userID}
-            onChange={(e) => setUserID(e.target.value)}
-            autoComplete="username"
-          />
+          <div>
+            <input
+              id="userid"
+              className="form-input"
+              value={userID}
+              onChange={(e) => setUserID(e.target.value)}
+              autoComplete="username"
+              aria-describedby="userid-hints"
+              {...idHints.bind}
+            />
+            <FieldHints id="userid-hints" hints={idFormat} open={idHints.open} />
+          </div>
         </div>
 
         <div className="form-row">
           <label className="form-label" htmlFor="password">Password</label>
-          <input
-            id="password"
-            className="form-input"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-          />
+          <div>
+            <input
+              id="password"
+              className="form-input"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              aria-describedby="password-hints"
+              {...pwHints.bind}
+            />
+            <FieldHints id="password-hints" hints={pwFormat} open={pwHints.open} />
+          </div>
         </div>
 
         {notice && <div className="msg msg-ok">✓ {notice}</div>}
