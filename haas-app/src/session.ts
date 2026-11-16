@@ -44,6 +44,47 @@ export function clear(): void {
   generation++
   queue.clear()
   clearNav()
+  clearActivity()
+}
+
+// What this tab has checked out or in since sign-in, newest first. Memory only (a refresh clears it) and a display
+// list, never totals: the database is the only record of what a project holds. Components read it through
+// useSyncExternalStore, so `activity` is replaced, never changed in place.
+export interface Activity {
+  time: Date
+  projectID: string
+  hwSet: string
+  kind: 'out' | 'in'
+  quantity: number
+}
+
+const MAX_ACTIVITY = 50
+let activity: Activity[] = []
+const listeners = new Set<() => void>()
+
+/** Adds one entry the server has accepted. Only the newest MAX_ACTIVITY are kept. */
+export function recordActivity(entry: Activity): void {
+  activity = [entry, ...activity].slice(0, MAX_ACTIVITY)
+  listeners.forEach((l) => l())
+}
+
+/** Drops one project's entries (the Clear button), or every entry when no project is given (sign-out, via clear()). */
+export function clearActivity(projectID?: string): void {
+  activity = projectID === undefined ? [] : activity.filter((a) => a.projectID !== projectID)
+  listeners.forEach((l) => l())
+}
+
+/** The entries for one project, newest first. */
+export function getActivity(projectID: string): Activity[] {
+  return activity.filter((a) => a.projectID === projectID)
+}
+
+/** For useSyncExternalStore: the whole list, which keeps the same identity until something is recorded or cleared. */
+export const allActivity = (): Activity[] => activity
+
+export function subscribeActivity(listener: () => void): () => void {
+  listeners.add(listener)
+  return () => void listeners.delete(listener)
 }
 
 // Where the user is, kept in sessionStorage so a page refresh does not sign them out. Only the userID and

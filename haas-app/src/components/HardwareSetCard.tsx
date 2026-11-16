@@ -5,7 +5,7 @@ import type { HardwareSet } from '../api.ts'
 import { ApiError, NumberFormatError, ValidationError, errorMessage, type NumberFormatReason } from '../errors.ts'
 import { validateQuantity } from '../validation.ts'
 import { Integer } from '../math.ts'
-import { enqueue } from '../session.ts'
+import { enqueue, recordActivity } from '../session.ts'
 import { OFFLINE_HINT, useConnectionStatus } from '../connection.ts'
 
 interface Props {
@@ -74,6 +74,7 @@ export default function HardwareSetCard({ hwSet, projectID, userID, onChange }: 
       const call = kind === 'out' ? api.checkOut : api.checkIn
       const updated = await enqueue(`${projectID}:${hwSet.name}`, () => call(userID, projectID, hwSet.name, quantity))
       onChange(updated)
+      recordActivity({ time: new Date(), projectID, hwSet: hwSet.name, kind, quantity: quantity.intValue() })
       setQty('')
       setMessage({ kind: 'ok', text: `${kind === 'out' ? 'Checked out' : 'Checked in'} ${quantity} unit${quantity.intValue() === 1 ? '' : 's'}` })
     } catch (err) {

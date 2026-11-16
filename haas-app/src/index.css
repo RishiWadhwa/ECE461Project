@@ -240,6 +240,14 @@ html, body, #root {
 .btn-block { width: 100%; margin-top: 8px; }
 .btn-sm { padding: 5px 12px; font-size: 12px; }
 .btn-row { display: flex; gap: 10px; }
+/* The activity column is exactly as tall as the hardware cards beside it: the card is taken out of the grid's
+   height calculation (absolute), so only the cards decide the row height, and the list inside scrolls. */
+.activity-split { align-items: stretch; }
+.activity-col { position: relative; min-height: 240px; }
+.activity-card { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.activity-list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; flex: 1; min-height: 0; overflow-y: auto; padding-right: 6px; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+.activity-time { color: var(--text-muted); margin-right: 10px; }
 .list-controls { display: flex; gap: 8px; margin-bottom: 14px; }
 .list-controls input { flex: 1; min-width: 0; }
 .list-controls select { width: auto; }

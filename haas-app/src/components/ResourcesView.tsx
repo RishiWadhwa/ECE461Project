@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api.ts'
 import type { HardwareSet, ProjectInfo } from '../api.ts'
 import HardwareSetCard from './HardwareSetCard.tsx'
+import ActivityList from './ActivityList.tsx'
 import { errorMessage } from '../errors.ts'
 import { useConnectionStatus } from '../connection.ts'
 
@@ -147,15 +148,25 @@ export default function ResourcesView({ projectID, userID, onBack }: Props) {
         </div>
       )}
 
-      {error && <div className="msg msg-error">✕ {error}</div>}
-      {loading && <div className="none-label">Loading hardware…</div>}
-      {/* The server answered with an empty list: usually the database has no hardware documents yet. */}
-      {!loading && !error && sets.length === 0 && <div className="none-label">No hardware sets found.</div>}
+      <div className="two-col activity-split">
+        <div>
+          {error && <div className="msg msg-error">✕ {error}</div>}
+          {loading && <div className="none-label">Loading hardware…</div>}
+          {/* The server answered with an empty list: usually the database has no hardware documents yet. */}
+          {!loading && !error && sets.length === 0 && <div className="none-label">No hardware sets found.</div>}
 
-      <div className="pair-grid hw-grid">
-        {sets.map((s) => (
-          <HardwareSetCard key={s.name} hwSet={s} projectID={projectID} userID={userID} onChange={replace} />
-        ))}
+          <div className="pair-grid hw-grid">
+            {sets.map((s) => (
+              <HardwareSetCard key={s.name} hwSet={s} projectID={projectID} userID={userID} onChange={replace} />
+            ))}
+          </div>
+        </div>
+
+        {/* Beside the cards, so a long log scrolls here instead of pushing them down the page. The wrapper
+            is as tall as the cards and the list inside it scrolls (see .activity-col in index.css). */}
+        <div className="activity-col">
+          <ActivityList projectID={projectID} />
+        </div>
       </div>
     </div>
   )

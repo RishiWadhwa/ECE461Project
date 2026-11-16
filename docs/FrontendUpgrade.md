@@ -18,10 +18,11 @@ is UI copy (labels, hints, help text), never user, project, or hardware data.
 | F8 | Search and sort My Projects | S |
 | F10 | Sign in automatically after sign-up | S |
 | F11 | Turn off write buttons while offline | S |
+| F13 | This session's activity on a project | M |
 | N1 | Show field requirements while typing | M |
 | N2 | Fill the empty space (several small layout additions) | M |
 
-IDs F1–F11 match the numbers in the original feature list; F2, F9, F12–F14 were not picked for this round.
+IDs F1–F13 match the numbers in the original feature list; F2, F9, F12, and F14 were not picked for this round.
 
 ---
 
@@ -180,6 +181,40 @@ back on by themselves when the probe succeeds.
 
 ---
 
+## F13. This session's activity on a project
+
+**Problem.** After a check-out or check-in, the only trace is a message on the card that disappears on the next
+action. There is nowhere to see what you did to a project in this session, and the page has empty space for it.
+
+**Approach.**
+- Keep the log in `session.ts`, next to the request queue, as a module-level list of entries:
+  `{ time, projectID, hwSet, kind: 'out' | 'in', quantity }`. It lives there, and not in `ResourcesView` state, so
+  it survives going back to Projects and opening another project during the same sign-in.
+- Expose it with `recordActivity(entry)` and `getActivity(projectID)`, and let components subscribe with
+  `useSyncExternalStore`, the same pattern `connection.ts` already uses for the status light.
+- `HardwareSetCard.tsx` calls `recordActivity` only after the server confirmed the request (where it already
+  calls `onChange(updated)`). A failed or conflicting request is not recorded, so the log shows what the database
+  accepted.
+- Keep it **in memory only**: not `sessionStorage` (F1), so a refresh clears it. It is a display list of this tab's
+  actions, never totals, which matches the rule in `session.ts` that the database is the only record of what a
+  project holds.
+- Cap the list at 50 entries (drop the oldest), and wipe it in `clear()` on sign-out.
+- New component `components/ActivityList.tsx` renders the entries for the open project, newest first, as
+  `hh:mm:ss · Checked out 5 × HWSet1`. The empty state reads "Nothing yet. Check hardware in or out and it
+  will show up here."
+- The panel is titled "Your activity this session" and says that it only lists actions made in this tab, so
+  nobody reads it as the project's full history (other users and other tabs are not included).
+- Place it on the Resources page under the project card. In the N2e two-column layout it goes in the left sidebar.
+
+**Done when.** A check-out then a check-in appear in the list in that order, newest first. A 409 does not add an
+entry. Going to Projects and back keeps the list, a different project shows its own entries, and Sign Out or a
+refresh empties it.
+
+**Tests.** `session.test.ts`: entries come back newest first, the per-project filter, the 50-entry cap, `clear()`
+wipes the log, and a subscriber is notified on record and on clear.
+
+---
+
 ## N1. Show field requirements while typing
 
 **Goal.** Show each field's rules while the user is typing, not only after a failed submit. The form box grows
@@ -247,7 +282,7 @@ time. N2b and N2c share one component, so N2c is cheap once N2b exists.
 |-------|----------|----------------|
 | 1 | F1, F11 | Fixes for confusing behavior; touch only App, session, and the button `disabled` props. |
 | 2 | F3, F4, F5 | All in `HardwareSetCard.tsx`; review together to avoid merge conflicts. |
-| 3 | F6, F7, N2e | All in `ResourcesView.tsx`; the sidebar from N2e is where Copy ID and "Updated" go. |
+| 3 | F6, F7, F13, N2e | All on the Resources page; the sidebar from N2e is where Copy ID, "Updated", and the activity list go. |
 | 4 | F8, N2a, N2b, N2d | The Projects page and the global layout. |
 | 5 | N1 (after the project ID rule decision), F10 | The forms: sign-up, sign-in, create, join. |
 | 6 | N2c, N2f, N2g | Stretch goals. |
