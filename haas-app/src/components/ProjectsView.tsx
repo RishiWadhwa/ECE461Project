@@ -5,6 +5,8 @@ import type { Project } from '../api.ts'
 import { ApiError, errorMessage } from '../errors.ts'
 import { useConnectionStatus } from '../connection.ts'
 import { validateProjectID } from '../validation.ts'
+import { filterProjects } from '../projectList.ts'
+import type { ProjectSort } from '../projectList.ts'
 
 interface Props {
   userID: string
@@ -27,6 +29,8 @@ export default function ProjectsView({ userID, onOpen }: Props) {
   const [joinID, setJoinID] = useState('')
   const [joinError, setJoinError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [query, setQuery] = useState('')
+  const [sort, setSort] = useState<ProjectSort>('name')
 
   const refresh = async () => {
     try {
@@ -110,6 +114,8 @@ export default function ProjectsView({ userID, onOpen }: Props) {
   //   }, setJoinError, 'Could not join project')
   // }
 
+  const visible = filterProjects(projects, query, sort)
+
   return (
     <div>
       <div className="section-header">
@@ -127,8 +133,26 @@ export default function ProjectsView({ userID, onOpen }: Props) {
           ) : projects.length === 0 ? (
             <div className="no-path">You are not part of any project yet.</div>
           ) : (
+            <>
+            {/* Search and sort only matter once there is something to choose between. */}
+            {projects.length >= 2 && (
+              <div className="list-controls">
+                <input
+                  className="form-input"
+                  placeholder="Search by name or ID"
+                  aria-label="Search projects"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+                <select className="form-input" aria-label="Sort projects" value={sort} onChange={(e) => setSort(e.target.value as ProjectSort)}>
+                  <option value="name">Name (A–Z)</option>
+                  <option value="id">Project ID</option>
+                </select>
+              </div>
+            )}
+            {visible.length === 0 && <div className="no-path">No projects match "{query.trim()}".</div>}
             <div className="pods-grid">
-              {projects.map((p) => (
+              {visible.map((p) => (
                 <button key={p.projectID} className="pod-card project-card" onClick={() => onOpen(p.projectID)}>
                   <div className="pod-label">{p.name || p.projectID}</div>
                   <div className="pair-meta">ID · {p.projectID}</div>
@@ -136,6 +160,7 @@ export default function ProjectsView({ userID, onOpen }: Props) {
                 </button>
               ))}
             </div>
+            </>
           )}
         </div>
 

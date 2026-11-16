@@ -240,6 +240,9 @@ html, body, #root {
 .btn-block { width: 100%; margin-top: 8px; }
 .btn-sm { padding: 5px 12px; font-size: 12px; }
 .btn-row { display: flex; gap: 10px; }
+.list-controls { display: flex; gap: 8px; margin-bottom: 14px; }
+.list-controls input { flex: 1; min-width: 0; }
+.list-controls select { width: auto; }
 .qty-row { display: flex; gap: 6px; }
 .qty-row .form-input { flex: 1; min-width: 0; }
 .btn-row .btn { flex: 1; }
