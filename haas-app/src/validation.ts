@@ -27,9 +27,15 @@ const MAX_PASSWORD_LENGTH = 64;
 const MIN_PROJECT_ID_LENGTH = 8;
 
 /**
- * This variable is the pattern a whole userID or project ID must match: one or more letters or digits, nothing else.
+ * This variable is the pattern a whole userID must match: one or more letters or digits, nothing else.
  */
 const ALLOWED_CHARS = /^[a-zA-Z0-9]+$/;
+
+/**
+ * This variable is the pattern a project ID must match: "PROJ" followed by at least 3 digits, in any letter case.
+ * It mirrors Flask's _project_id() in backend/project_routes.py, which uppercases the ID before checking it.
+ */
+const PROJECT_ID_PATTERN = /^PROJ[0-9]{3,}$/i;
 
 /**
  * This type is which form validateCreds is checking: "signIn" only requires both fields to be filled in,
@@ -157,8 +163,8 @@ function checkProjectID(value: string): string | null {
         return requiredMsg;
     } else if (value.length < MIN_PROJECT_ID_LENGTH) {
         return `Project ID must be at least ${MIN_PROJECT_ID_LENGTH} characters`;
-    } else if (!ALLOWED_CHARS.test(value)) {
-        return "Project ID can only contain letters and digits";
+    } else if (!PROJECT_ID_PATTERN.test(value)) {
+        return "Project ID must be PROJ followed by at least 3 digits";
     }
     return null
 }
@@ -235,6 +241,7 @@ export function validateQuantity(value: Integer, max: Integer): Quantity {
 /**
  * This function validates a project ID before a create or join request and throws a ValidationError if it is invalid.
  * @param value This parameter is the project ID the user typed.
+ * @returns This function returns the ID in uppercase, which is the form the backend stores and returns.
  */
 export function validateProjectID(value: string): ProjectID {
     let projectidMsg = checkProjectID(value);
@@ -242,5 +249,5 @@ export function validateProjectID(value: string): ProjectID {
         throw new ValidationError([{object: "projectID", message: projectidMsg}]);
     }
 
-    return value as ProjectID;
+    return value.toUpperCase() as ProjectID;
 }

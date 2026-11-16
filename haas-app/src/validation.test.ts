@@ -80,18 +80,21 @@ describe('validateCreds (signIn)', () => {
 })
 
 describe('validateProjectID', () => {
-  it('accepts letters and digits', () => {
-    expect(() => validateProjectID('project01')).not.toThrow()
+  it('accepts PROJ followed by digits', () => {
+    expect(() => validateProjectID('PROJ0001')).not.toThrow()
+    expect(() => validateProjectID('PROJ123456')).not.toThrow()
   })
 
-  it('accepts a project ID exactly at the minimum length', () => {
-    expect(() => validateProjectID('proj0001')).not.toThrow()
+  it('accepts any letter case and returns the ID in uppercase, like the backend', () => {
+    expect(validateProjectID('proj0001')).toBe('PROJ0001')
   })
 
   it.each([
     ['', 'Project ID is required!'],
-    ['proj001', 'Project ID must be at least 8 characters'],
-    ['project 01', 'Project ID can only contain letters and digits'],
+    ['PROJ001', 'Project ID must be at least 8 characters'],
+    ['project01', 'Project ID must be PROJ followed by at least 3 digits'],
+    ['PROJ00A1', 'Project ID must be PROJ followed by at least 3 digits'],
+    ['PROJ 001', 'Project ID must be PROJ followed by at least 3 digits'],
   ])('rejects %j', (value, message) => {
     expect(caught(() => validateProjectID(value)).messageFor('projectID')).toBe(message)
   })
@@ -131,8 +134,8 @@ describe('validators return the checked value', () => {
     expect(validateQuantity(five, Integer.of(10))).toBe(five)
   })
 
-  it('validateProjectID returns the same ID', () => {
-    expect(validateProjectID('project01')).toBe('project01')
+  it('validateProjectID returns the same ID when it is already uppercase', () => {
+    expect(validateProjectID('PROJ0001')).toBe('PROJ0001')
   })
 })
 

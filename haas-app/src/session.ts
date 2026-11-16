@@ -4,7 +4,7 @@ import { AppError } from './errors.ts'
 // database is the only record of what each project has checked out.
 
 /**
- * This hashtable maps a key (e.g. "demoproj1:HWSet1") to the last request queued under it. Each new request
+ * This hashtable maps a key (e.g. "PROJ0001:HWSet1") to the last request queued under it. Each new request
  * waits for that one to settle first, so requests for the same key run one at a time, in order.
  */
 const queue = new Map<string, Promise<unknown>>()

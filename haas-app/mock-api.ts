@@ -42,6 +42,9 @@ export function handle(
   b: Record<string, any>,
 ): MockResponse | null {
   const isPost = method === 'POST'
+  // Flask uppercases project IDs before using them (backend/project_routes.py), so the mock does too.
+  if (typeof b.projectID === 'string') b.projectID = b.projectID.trim().toUpperCase()
+  if (query.has('projectID')) query.set('projectID', query.get('projectID')!.trim().toUpperCase())
 
   switch (path) {
     case '/login':

@@ -54,14 +54,14 @@ describe('api requests', () => {
   it('sends validated values as plain JSON', async () => {
     fetchMock.mockReturnValue(reply(200, {}))
     await api.login(validateCreds('testuser', 'test1234', 'signIn'))
-    await api.checkOut('testuser', 'demoproj1', 'HWSet1', validateQuantity(Integer.of(5), Integer.of(10)))
+    await api.checkOut('testuser', 'PROJ0001', 'HWSet1', validateQuantity(Integer.of(5), Integer.of(10)))
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ userID: 'testuser', password: 'test1234' })
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ userID: 'testuser', projectID: 'demoproj1', hwSet: 'HWSet1', quantity: 5 })
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ userID: 'testuser', projectID: 'PROJ0001', hwSet: 'HWSet1', quantity: 5 })
   })
 
   it('throws an ApiError carrying the status and the server message', async () => {
     fetchMock.mockReturnValueOnce(reply(409, { error: 'Only 3 units of HWSet1 available' }))
-    const err = await api.checkOut('testuser', 'demoproj1', 'HWSet1', validateQuantity(Integer.of(5), Integer.of(10))).catch((e) => e)
+    const err = await api.checkOut('testuser', 'PROJ0001', 'HWSet1', validateQuantity(Integer.of(5), Integer.of(10))).catch((e) => e)
     expect(err).toBeInstanceOf(ApiError)
     expect(err.isConflict()).toBe(true)
     expect(err.message).toBe('Only 3 units of HWSet1 available')
@@ -120,9 +120,9 @@ describe('API calls only accept validated values', () => {
       // @ts-expect-error sign-in checks are too weak to create an account
       () => api.addUser(validateCreds('testuser', 'test1234', 'signIn')),
       // @ts-expect-error a parsed Integer has not been checked against the limit
-      () => api.checkOut('demoproj1', 'HWSet1', Integer.of(5)),
+      () => api.checkOut('PROJ0001', 'HWSet1', Integer.of(5)),
       // @ts-expect-error a plain string has not passed validateProjectID
-      () => api.joinProject('testuser', 'demoproj1'),
+      () => api.joinProject('testuser', 'PROJ0001'),
     ]
     expect(unvalidated).toHaveLength(4)
   })
@@ -130,7 +130,7 @@ describe('API calls only accept validated values', () => {
   it('accepts the same calls once the values are validated', () => {
     const validated = [
       () => api.addUser(validateCreds('testuser', 'test1234', 'signUp')),
-      () => api.joinProject('testuser', validateProjectID('demoproj1')),
+      () => api.joinProject('testuser', validateProjectID('PROJ0001')),
     ]
     expect(validated).toHaveLength(2)
   })
