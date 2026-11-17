@@ -19,12 +19,25 @@ def get_hw_info():
     name = request.args.get("name", "").strip()
     if not name:
         raise ApiError(400, "A name is required to get hardware info.")
+    # Optional. When present, the response adds how many units that project holds of this set.
+    project_id = request.args.get("projectID", "").strip().upper()
     hw = get_db()["hardware"]
-    document = hw.find_one({"name": name}, {"_id": 0, "name": 1, "capacity": 1, "available": 1})
+    document = hw.find_one(
+        {"name": name},
+        {"_id": 0, "hardwareId": 1, "name": 1, "capacity": 1, "available": 1},
+    )
     if document is None:
         raise ApiError(404, f"Hardware with name '{name}' not found")
 
-    return jsonify(document)
+    hardware_id = document.pop("hardwareId", None)
+    if not project_id:
+        return jsonify(document)
+
+    project = get_db()["projects"].find_one({"projectId": project_id}, {"_id": 0, "checkedOut": 1})
+    if project is None:
+        raise ApiError(404, f"Project with ID '{project_id}' not found")
+
+    return jsonify(_hardware_response(document, _held(project, hardware_id)))
 
 
 @bp.post("/check_out")
@@ -70,7 +83,7 @@ def check_out():
     if updated is None:
         raise ApiError(409, "Not enough hardware available")
 
-    return jsonify(_hardware_response(updated))
+    return jsonify(_hardware_response(updated, _held_for(project_id, hardware_doc["hardwareId"])))
 
 
 @bp.post("/check_in")
@@ -123,12 +136,34 @@ def check_in():
     if updated is None:
         raise ApiError(409, "This project does not have that many units checked out")
 
-    return jsonify(_hardware_response(updated))
+    return jsonify(_hardware_response(updated, _held_for(project_id, hardware_doc["hardwareId"])))
 
 
-def _hardware_response(document: dict) -> dict:
-    return {
+def _held(project: dict, hardware_id: str | None) -> int:
+    """Units this project holds of one set. The map is keyed by hardwareId, and a missing key is 0."""
+    checked_out = project.get("checkedOut")
+    if not isinstance(checked_out, dict) or not isinstance(hardware_id, str):
+        return 0
+    held = checked_out.get(hardware_id, 0)
+    if type(held) is not int:
+        return 0
+    return held
+
+
+def _held_for(project_id: str, hardware_id: str) -> int:
+    project = get_db()["projects"].find_one({"projectId": project_id}, {"_id": 0, "checkedOut": 1})
+    if project is None:
+        return 0
+    return _held(project, hardware_id)
+
+
+def _hardware_response(document: dict, checked_out: int | None = None) -> dict:
+    result = {
         "name": document["name"],
         "capacity": document["capacity"],
         "available": document["available"],
     }
+    # Present only when the request named a project. This is that project's count, not the set's total.
+    if checked_out is not None:
+        result["checkedOut"] = checked_out
+    return result
