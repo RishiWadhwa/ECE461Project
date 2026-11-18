@@ -43,6 +43,26 @@ def test_get_all_hw_names(client, hw):
     assert r.status_code == 200
     assert sorted(r.get_json()["names"]) == ["HWSet1", "HWSet2"]
 
+def test_hw_availability_lists_every_set(client, hw):
+    r = client.get("/hw_availability")
+    assert r.status_code == 200
+    assert sorted(r.get_json(), key=lambda s: s["name"]) == [
+        {"name": "HWSet1", "capacity": 100, "available": 100},
+        {"name": "HWSet2", "capacity": 100, "available": 100},
+    ]
+
+def test_hw_availability_follows_check_outs(client, hw):
+    create_project(client)
+    assert check_out(client, 30).status_code == 200
+    sets = {s["name"]: s for s in client.get("/hw_availability").get_json()}
+    assert sets["HWSet1"]["available"] == 70
+    assert sets["HWSet2"]["available"] == 100
+
+def test_hw_availability_is_empty_without_hardware(client):
+    r = client.get("/hw_availability")
+    assert r.status_code == 200
+    assert r.get_json() == []
+
 def test_get_hw_info(client, hw):
     r = client.get("/get_hw_info?name=HWSet1")
     assert r.status_code == 200

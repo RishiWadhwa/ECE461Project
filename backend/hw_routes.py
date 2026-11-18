@@ -15,6 +15,14 @@ def get_all_hw_names():
     return jsonify({"names": names})
 
 
+@bp.get("/hw_availability")
+def hw_availability():
+    """Every set's current numbers in one read, for the Resources page's live updates.
+    Each check-out or check-in changes one hardware document atomically, so every entry is self-consistent."""
+    documents = get_db()["hardware"].find({}, {"_id": 0, "name": 1, "capacity": 1, "available": 1})
+    return jsonify([_hardware_response(document) for document in documents])
+
+
 @bp.get("/get_hw_info")
 def get_hw_info():
     name = request.args.get("name", "").strip()
