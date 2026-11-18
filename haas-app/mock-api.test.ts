@@ -63,7 +63,22 @@ describe('mock projects', () => {
   })
 })
 
+describe('mock health', () => {
+  it('answers ok', () => {
+    expect(get('/health')?.body).toEqual({ status: 'ok' })
+  })
+})
+
 describe('mock hardware', () => {
+  it('lists every set\'s availability and follows check-outs', () => {
+    expect(get('/hw_availability')?.body).toEqual([
+      { name: 'HWSet1', capacity: 100, available: 70 },
+      { name: 'HWSet2', capacity: 100, available: 85 },
+    ])
+    post('/check_out', { projectID: 'PROJ0042', hwSet: 'HWSet1', quantity: 5 })
+    expect(get('/hw_availability')?.body).toMatchObject([{ available: 65 }, { available: 85 }])
+  })
+
   it('reports how many units the project holds', () => {
     expect(get('/get_hw_info', { name: 'HWSet1' })?.body).toEqual({ name: 'HWSet1', capacity: 100, available: 70 })
     expect(get('/get_hw_info', { name: 'HWSet1', projectID: 'PROJ0001' })?.body).toMatchObject({ available: 70, checkedOut: 20 })

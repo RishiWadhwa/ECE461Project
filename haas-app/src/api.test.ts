@@ -59,6 +59,14 @@ describe('api requests', () => {
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ userID: 'testuser', projectID: 'PROJ0001', hwSet: 'HWSet1', quantity: 5 })
   })
 
+  it('reads health and every set\'s availability from their routes', async () => {
+    const sets = [{ name: 'HWSet1', capacity: 100, available: 70 }]
+    fetchMock.mockReturnValueOnce(reply(200, { status: 'ok' })).mockReturnValueOnce(reply(200, sets))
+    await expect(api.health()).resolves.toEqual({ status: 'ok' })
+    await expect(api.getHardwareAvailability()).resolves.toEqual(sets)
+    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual(['/health', '/hw_availability'])
+  })
+
   it('throws an ApiError carrying the status and the server message', async () => {
     fetchMock.mockReturnValueOnce(reply(409, { error: 'Only 3 units of HWSet1 available' }))
     const err = await api.checkOut('testuser', 'PROJ0001', 'HWSet1', validateQuantity(Integer.of(5), Integer.of(10))).catch((e) => e)
@@ -99,9 +107,10 @@ describe('network failures', () => {
     await api.getHardwareNames().catch(() => {})
     expect(getConnectionStatus()).toBe('offline')
 
-    fetchMock.mockReturnValueOnce(reply(200, { names: ['HWSet1'] }))
+    fetchMock.mockReturnValueOnce(reply(200, { status: 'ok' }))
     await vi.advanceTimersByTimeAsync(PROBE_INTERVAL_MS)
     expect(getConnectionStatus()).toBe('online')
+    expect(fetchMock).toHaveBeenLastCalledWith('/health', expect.anything())
 
     // Probing stops once the server is back.
     await vi.advanceTimersByTimeAsync(PROBE_INTERVAL_MS * 3)
