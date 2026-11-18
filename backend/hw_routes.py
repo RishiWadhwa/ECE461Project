@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 from .errors import ApiError
+from mongodb import connection
 from mongodb.connection import get_db
 from mongodb.hardware.stock import release, reserve
 
@@ -66,7 +67,7 @@ def check_out():
     if hardware_doc is None:
         raise ApiError(404, "Hardware set not found")
 
-    updated = reserve(hardware_doc["hardwareId"], quantity, project_id)
+    updated = connection.run_in_transaction(lambda session: reserve(hardware_doc["hardwareId"], quantity, project_id, session=session))
     if updated is None:
         raise ApiError(409, "Not enough hardware available")
 
@@ -119,7 +120,7 @@ def check_in():
     if hardware_doc is None:
         raise ApiError(404, "Hardware set not found")
 
-    updated = release(hardware_doc["hardwareId"], quantity, project_id)
+    updated = connection.run_in_transaction(lambda session: release(hardware_doc["hardwareId"], quantity, project_id, session=session))
     if updated is None:
         raise ApiError(409, "This project does not have that many units checked out")
 
