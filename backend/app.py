@@ -6,6 +6,7 @@ from .auth_routes import bp as auth_bp
 from .hw_routes import bp as hw_bp
 from .project_routes import bp as project_bp
 from .errors import register_error_handlers
+from mongodb.connection import secure_indexes
 
 from flask_cors import CORS
 
@@ -24,6 +25,8 @@ def create_app() -> Flask:
         app.add_url_rule("/", "index", lambda: app.send_static_file("index.html"))
     else:
         app = Flask(__name__)
+
+    secure_indexes()
     
     CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
     app.config["MAX_CONTENT_LENGTH"] = MAX_BODY_BYTES
@@ -32,10 +35,6 @@ def create_app() -> Flask:
         app.register_blueprint(bp)
     return app
 
-
-app = create_app()
-
-
 if __name__ == "__main__":
     # MacOS' AirPlay service uses port 5000, so we use 5001 for Flask. The frontend is on 5173 (normal and not unusually...).
-    app.run(host="127.0.0.1", port=5001, debug=os.environ.get("FLASK_DEBUG") == "1")
+    create_app().run(host="127.0.0.1", port=5001, debug=os.environ.get("FLASK_DEBUG") == "1")

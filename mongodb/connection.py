@@ -5,6 +5,10 @@ from pathlib import Path
 from pymongo import MongoClient
 from pymongo.database import Database
 
+def secure_indexes() -> None:
+    """Safe to execute on every start: mongodb ignores an index that already exists."""
+    users().create_index("userId", unique=True)
+    projects().create_index("projectId", unique=True)
 
 def _load_dotenv() -> None:
     path = Path(__file__).resolve().parents[1] / ".env"
