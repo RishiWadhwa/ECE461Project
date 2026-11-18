@@ -89,7 +89,11 @@ export function handle(
       return ok({ names: [...db.hardware.keys()] })
     case '/get_hw_info': {
       const hw = db.hardware.get(query.get('name') ?? '')
-      return hw ? ok(hw) : fail(404, 'Hardware set not found')
+      if (!hw) return fail(404, 'Hardware set not found')
+      const projectID = query.get('projectID') ?? ''
+      if (!projectID) return ok(hw)
+      if (!db.projects.has(projectID)) return fail(404, 'Project not found')
+      return ok({ ...hw, checkedOut: db.holdings.get(projectID)?.get(hw.name) ?? 0 })
     }
     case '/check_out':
     case '/check_in': {
@@ -119,7 +123,7 @@ export function handle(
         held.set(hw.name, current - qty)
       }
       db.holdings.set(b.projectID, held)
-      return ok(hw)
+      return ok({ ...hw, checkedOut: held.get(hw.name) ?? 0 })
     }
   }
   return null

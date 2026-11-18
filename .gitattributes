@@ -1,0 +1,2 @@
+# A CRLF shebang makes this script fail on macOS, Linux, and Git Bash.
+scripts/flask.sh text eol=lf

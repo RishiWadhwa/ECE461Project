@@ -56,8 +56,6 @@ export default function HardwareSetCard({ hwSet, projectID, userID, onChange }: 
     setBusy(true)
     setMessage(null)
     try {
-      // Check-in limit is the units this project holds, which the API does not expose yet,
-      // so only the server enforces it for now. Future feature: use hwSet.checkedOut here once it exists.
       let amount: Integer
       try {
         amount = Integer.valueOf(qty)
@@ -68,8 +66,10 @@ export default function HardwareSetCard({ hwSet, projectID, userID, onChange }: 
         }
         throw err
       }
-      // Built outside the inner try: a bad count from the server is not the user's typing mistake.
-      const max = Integer.of(kind === 'out' ? hwSet.available : Number.MAX_SAFE_INTEGER)
+      // Check-in cannot return more than this project holds. A response without checkedOut (no project
+      // was named) leaves that limit to the server.
+      const held = hwSet.checkedOut === undefined ? Number.MAX_SAFE_INTEGER : hwSet.checkedOut
+      const max = Integer.of(kind === 'out' ? hwSet.available : held)
       const quantity = validateQuantity(amount, max)
       const call = kind === 'out' ? api.checkOut : api.checkIn
       const updated = await enqueue(`${projectID}:${hwSet.name}`, () => call(userID, projectID, hwSet.name, quantity))
@@ -84,7 +84,7 @@ export default function HardwareSetCard({ hwSet, projectID, userID, onChange }: 
       }
       // Another user may have changed this set (409), or a dropped request may or may not have
       // gone through, so the numbers on screen can be stale either way. Refetch before retrying.
-      const refreshed = await api.getHardwareInfo(hwSet.name).then(
+      const refreshed = await api.getHardwareInfo(hwSet.name, projectID).then(
         (latest) => { onChange(latest); return true },
         () => false,
       )
@@ -118,10 +118,7 @@ export default function HardwareSetCard({ hwSet, projectID, userID, onChange }: 
     <div className="card hw-card">
       <div className="card-title">{hwSet.name}</div>
 
-      {/* Future feature (after the checkpoint): swap the next line for
-          <div className="hw-stats hw-stats-3">
-          so three stats fit without overlapping (see .hw-stats-3 in index.css). */}
-      <div className="hw-stats">
+      <div className="hw-stats hw-stats-3">
         <div>
           <div className="social-section-label">Capacity</div>
           <div className="hw-number">{hwSet.capacity}</div>
@@ -130,13 +127,10 @@ export default function HardwareSetCard({ hwSet, projectID, userID, onChange }: 
           <div className="social-section-label">Available</div>
           <div className={'hw-number hw-available stock-' + stock}>{hwSet.available}</div>
         </div>
-        {/* Future feature (after the checkpoint): units this project holds, from a backend endpoint
-            that does not exist yet (e.g. a checkedOut field on get_hw_info for the current project).
         <div>
           <div className="social-section-label">Checked Out</div>
-          <div className="hw-number">{hwSet.checkedOut}</div>
+          <div className="hw-number">{hwSet.checkedOut ?? 0}</div>
         </div>
-        */}
       </div>
 
       <div className={`meter-track meter-${stock}`}>

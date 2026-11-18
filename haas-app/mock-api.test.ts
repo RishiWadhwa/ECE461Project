@@ -64,6 +64,18 @@ describe('mock projects', () => {
 })
 
 describe('mock hardware', () => {
+  it('reports how many units the project holds', () => {
+    expect(get('/get_hw_info', { name: 'HWSet1' })?.body).toEqual({ name: 'HWSet1', capacity: 100, available: 70 })
+    expect(get('/get_hw_info', { name: 'HWSet1', projectID: 'PROJ0001' })?.body).toMatchObject({ available: 70, checkedOut: 20 })
+    expect(get('/get_hw_info', { name: 'HWSet1', projectID: 'PROJ0042' })?.body).toMatchObject({ checkedOut: 0 })
+    expect(get('/get_hw_info', { name: 'HWSet1', projectID: 'PROJ9999' })?.status).toBe(404)
+
+    const out = post('/check_out', { projectID: 'PROJ0042', hwSet: 'HWSet1', quantity: 5 })
+    expect(out?.body).toMatchObject({ available: 65, checkedOut: 5 })
+    // The other project's count is unchanged; only the shared pool moved.
+    expect(get('/get_hw_info', { name: 'HWSet1', projectID: 'PROJ0001' })?.body).toMatchObject({ available: 65, checkedOut: 20 })
+  })
+
   it('moves units between the pool and the project', () => {
     expect(post('/check_out', { projectID: 'PROJ0042', hwSet: 'HWSet2', quantity: 5 })?.body).toMatchObject({ available: 80 })
     expect(post('/check_in', { projectID: 'PROJ0042', hwSet: 'HWSet2', quantity: 5 })?.body).toMatchObject({ available: 85 })
