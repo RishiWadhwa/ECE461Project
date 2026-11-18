@@ -18,6 +18,7 @@ def db(monkeypatch):
     if TEST_MONGO_URI is None:
         fake_client = mongomock.MongoClient()
         monkeypatch.setattr(connection, "get_client", lambda: fake_client)
+        monkeypatch.setattr(connection, "run_in_transaction", lambda work: work(None))
     database = get_db()
     assert database.name == "haas_test"
     for name in database.list_collection_names():
