@@ -69,7 +69,7 @@ export default function ResourcesView({ projectID, userID, onBack }: Props) {
     const started = version.current
     try {
       const { names } = await api.getHardwareNames()
-      const infos = await Promise.all(names.map((n) => api.getHardwareInfo(n)))
+      const infos = await Promise.all(names.map((n) => api.getHardwareInfo(n, projectID)))
       if (!alive.current || started !== version.current) return
       setSets(infos)
       setError(null)
@@ -82,7 +82,7 @@ export default function ResourcesView({ projectID, userID, onBack }: Props) {
         setRefreshing(false)
       }
     }
-  }, [])
+  }, [projectID])
 
   // Loads on mount, and again when the server comes back so stale numbers get replaced.
   useEffect(() => {

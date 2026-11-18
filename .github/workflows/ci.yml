@@ -53,7 +53,8 @@ jobs:
       - run: npm test
 
   # Runs from the repo root: the routes import `mongodb` as a top-level package.
-  # With no TEST_MONGO_URI set, conftest.py uses an in-memory mongomock database.
+  # The first pytest run has no TEST_MONGO_URI, so conftest.py uses an in-memory mongomock database;
+  # the second runs the whole suite again against a real MongoDB started in a container.
   backend:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
@@ -67,6 +68,26 @@ jobs:
           cache-dependency-path: backend/requirements*.txt
       - run: pip install -r backend/requirements-dev.txt
       - run: pytest
+      # test_real_mongo.py is skipped above: simultaneous requests and transactions need a real server,
+      # and transactions need a replica set. This starts a one-member replica set and runs the whole suite
+      # on it, so check-out and check-in also go through real transactions instead of the mongomock stand-in.
+      - name: Start a throwaway MongoDB replica set
+        run: |
+          docker run --detach --name mongo --publish 27017:27017 mongo:7.0 --replSet rs0 --bind_ip_all
+          for i in $(seq 1 30); do
+            docker exec mongo mongosh --quiet --eval 'db.runCommand({ ping: 1 })' > /dev/null 2>&1 && break
+            sleep 2
+          done
+          docker exec mongo mongosh --quiet --eval "rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'localhost:27017' }] })"
+          for i in $(seq 1 30); do
+            [ "$(docker exec mongo mongosh --quiet --eval 'db.hello().isWritablePrimary')" = "true" ] && exit 0
+            sleep 2
+          done
+          echo "MongoDB did not become ready"; docker logs mongo; exit 1
+      - name: All backend tests on a real MongoDB (including simultaneous requests and transactions)
+        run: pytest
+        env:
+          TEST_MONGO_URI: mongodb://localhost:27017/?directConnection=true
 
   # The whole app as it will be deployed: builds the production image and starts it with Docker Compose
   # (built frontend + Flask + a throwaway MongoDB), then checks it over HTTP. Runs when either side changes,

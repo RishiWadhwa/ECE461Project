@@ -52,6 +52,24 @@ def test_get_hw_info(client, hw):
 def test_get_hw_info_errors(client, hw, query, status):
     assert client.get("/get_hw_info" + query).status_code == status
 
+def test_get_hw_info_reports_what_each_project_holds(client, hw):
+    create_project(client, owner="alice", project="PROJ1111")
+    create_project(client, owner="bobby", project="PROJ2222")
+    check_out(client, 30, user="alice", project="PROJ1111")
+    check_out(client, 10, user="bobby", project="PROJ2222")
+
+    alice = client.get("/get_hw_info?name=HWSet1&projectID=PROJ1111")
+    assert alice.status_code == 200
+    assert alice.get_json() == {"name": "HWSet1", "capacity": 100, "available": 60, "checkedOut": 30}
+
+    # Same lookup the check-out route uses: the id is matched case-insensitively.
+    bobby = client.get("/get_hw_info?name=HWSet1&projectID=proj2222")
+    assert bobby.get_json()["checkedOut"] == 10
+
+    untouched = client.get("/get_hw_info?name=HWSet2&projectID=PROJ1111")
+    assert untouched.get_json()["checkedOut"] == 0
+    assert client.get("/get_hw_info?name=HWSet1&projectID=PROJ9999").status_code == 404
+
 
 # ---- check-out ----
 
@@ -59,7 +77,7 @@ def test_check_out_updates_set_and_project(client, hw):
     create_project(client)
     r = check_out(client, 30)
     assert r.status_code == 200
-    assert r.get_json() == {"name": "HWSet1", "capacity": 100, "available": 70}
+    assert r.get_json() == {"name": "HWSet1", "capacity": 100, "available": 70, "checkedOut": 30}
     assert hardware_doc(hw)["checkedOut"] == 30
     assert held(hw) == 30
     assert_counts_add_up(hw)
@@ -139,6 +157,7 @@ def test_check_in_returns_units(client, hw):
     r = check_in(client, 10)
     assert r.status_code == 200
     assert r.get_json()["available"] == 80
+    assert r.get_json()["checkedOut"] == 20
     assert held(hw) == 20
     assert_counts_add_up(hw)
 
