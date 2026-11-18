@@ -15,6 +15,27 @@ from flask_cors import CORS
 # No request this API accepts is anywhere near this large.
 MAX_BODY_BYTES = 16 * 1024
 
+# Vite's dev server. Always allowed so `npm run dev:prod` can call this API.
+LOCAL_FRONTEND = "http://localhost:5173"
+
+
+def _allowed_origins() -> list[str]:
+    """Origins that may call the API from a browser.
+
+    Local Vite is always included. CORS_ORIGINS is a comma-separated list for a split
+    deploy, where the page is on another host (Netlify) and this process is only the API.
+    Leave it unset when Flask also serves the built page (the Docker image): that page is
+    same-origin and does not need a CORS entry. A trailing slash is ignored because the
+    browser sends the origin without one.
+    """
+    
+    origins = [LOCAL_FRONTEND]
+    for raw in os.environ.get("CORS_ORIGINS", "").split(","):
+        origin = raw.strip().rstrip("/")
+        if origin and origin not in origins:
+            origins.append(origin)
+    return origins
+
 
 def create_app() -> Flask:
     # In the Docker image, STATIC_DIR is the built frontend, so this one server hosts both the page and the API.
@@ -28,7 +49,7 @@ def create_app() -> Flask:
 
     secure_indexes()
     
-    CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
+    CORS(app, resources={r"/*": {"origins": _allowed_origins()}})
     app.config["MAX_CONTENT_LENGTH"] = MAX_BODY_BYTES
     register_error_handlers(app)
     for bp in (auth_bp, project_bp, hw_bp):

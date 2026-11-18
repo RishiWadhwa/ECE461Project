@@ -28,6 +28,48 @@ def test_preflight_allows_json_posts_from_the_frontend(client):
     assert "POST" in r.headers.get("Access-Control-Allow-Methods", "")
     assert "content-type" in r.headers.get("Access-Control-Allow-Headers", "").lower()
 
+# A split deploy: the page is on Netlify, this API is on another host. CORS_ORIGINS names the page.
+NETLIFY = "https://haas-demo.netlify.app"
+
+def _client_for_origins(monkeypatch, origins: str):
+    monkeypatch.setenv("CORS_ORIGINS", origins)
+    app = create_app()
+    app.config["TESTING"] = True
+    return app.test_client()
+
+def test_split_deploy_origin_is_allowed(db, monkeypatch):
+    client = _client_for_origins(monkeypatch, NETLIFY)
+    r = client.get("/get_all_hw_names", headers={"Origin": NETLIFY})
+    assert r.headers.get("Access-Control-Allow-Origin") == NETLIFY
+
+def test_local_frontend_stays_allowed_alongside_a_split_origin(db, monkeypatch):
+    client = _client_for_origins(monkeypatch, NETLIFY)
+    r = client.get("/get_all_hw_names", headers={"Origin": FRONTEND})
+    assert r.headers.get("Access-Control-Allow-Origin") == FRONTEND
+
+def test_unlisted_origin_stays_blocked_when_a_split_origin_is_set(db, monkeypatch):
+    client = _client_for_origins(monkeypatch, NETLIFY)
+    r = client.get("/get_all_hw_names", headers={"Origin": "http://evil.example"})
+    assert "Access-Control-Allow-Origin" not in r.headers
+
+def test_several_origins_and_a_trailing_slash(db, monkeypatch):
+    preview = "https://preview.netlify.app"
+    client = _client_for_origins(monkeypatch, f" {NETLIFY}/ , {preview} ")
+    for origin in (NETLIFY, preview):
+        r = client.get("/get_all_hw_names", headers={"Origin": origin})
+        assert r.headers.get("Access-Control-Allow-Origin") == origin
+
+def test_preflight_from_the_split_origin(db, monkeypatch):
+    client = _client_for_origins(monkeypatch, NETLIFY)
+    r = client.options("/login", headers={
+        "Origin": NETLIFY,
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "content-type",
+    })
+    assert r.headers.get("Access-Control-Allow-Origin") == NETLIFY
+    assert "POST" in r.headers.get("Access-Control-Allow-Methods", "")
+    assert "content-type" in r.headers.get("Access-Control-Allow-Headers", "").lower()
+
 
 # ---- serving the built frontend (Docker image) ----
 

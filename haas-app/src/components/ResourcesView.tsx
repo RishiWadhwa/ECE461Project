@@ -38,7 +38,7 @@ export default function ResourcesView({ projectID, userID, onBack }: Props) {
     ;(async () => {
       try {
         const { names } = await api.getHardwareNames()
-        const infos = await Promise.all(names.map((n) => api.getHardwareInfo(n)))
+        const infos = await Promise.all(names.map((n) => api.getHardwareInfo(n, projectID)))
         if (!cancelled) {
           setSets(infos)
           setError(null)
@@ -52,7 +52,7 @@ export default function ResourcesView({ projectID, userID, onBack }: Props) {
     return () => {
       cancelled = true
     }
-  }, [connection])
+  }, [connection, projectID])
 
   const replace = (updated: HardwareSet) =>
     setSets((prev) => prev.map((s) => (s.name === updated.name ? updated : s)))
