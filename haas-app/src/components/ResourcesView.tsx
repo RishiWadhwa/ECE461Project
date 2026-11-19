@@ -1,13 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../api.ts'
-import type { HardwareSet, ProjectInfo } from '../api.ts'
+import type { ProjectInfo } from '../api.ts'
 import HardwareSetCard from './HardwareSetCard.tsx'
 import ActivityList from './ActivityList.tsx'
-import { errorMessage } from '../errors.ts'
 import { useConnectionStatus } from '../connection.ts'
-
-// How often the numbers are re-read so other users' check-outs show up. Only while the tab is visible and online.
-const POLL_INTERVAL_MS = 15000
+import { useLiveHardware } from '../useLiveHardware.ts'
 
 interface Props {
   projectID: string
@@ -16,26 +13,13 @@ interface Props {
 }
 
 export default function ResourcesView({ projectID, userID, onBack }: Props) {
-  const [sets, setSets] = useState<HardwareSet[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { sets, loading, refreshing, error, updatedAt, refresh, replace } = useLiveHardware(projectID)
   const [project, setProject] = useState<ProjectInfo | null>(null)
-  const [refreshing, setRefreshing] = useState(false)
-  const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
   const connection = useConnectionStatus()
-  const alive = useRef(true)
   const [copy, setCopy] = useState<'idle' | 'copied' | 'failed'>('idle')
   const copyTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  // Bumped whenever a card reports its own result, so a slower reload that started earlier cannot overwrite it.
-  const version = useRef(0)
 
-  useEffect(() => {
-    alive.current = true
-    return () => {
-      alive.current = false
-      clearTimeout(copyTimer.current)
-    }
-  }, [])
+  useEffect(() => () => clearTimeout(copyTimer.current), [])
 
   // Copies the project ID so it can be shared with someone who needs to join. The clipboard can be refused
   // (insecure page, permission denied), so a failure shows the ID to copy by hand.
@@ -63,59 +47,6 @@ export default function ResourcesView({ projectID, userID, onBack }: Props) {
     }
   }, [projectID, connection])
 
-  // Reads every set. A 'poll' reload keeps quiet on failure (the connection banner already says so); only a
-  // 'manual' one is started by the Refresh button, which sets the Refreshing label itself (not from an effect).
-  const load = useCallback(async (reason: 'initial' | 'manual' | 'poll') => {
-    const started = version.current
-    try {
-      const { names } = await api.getHardwareNames()
-      const infos = await Promise.all(names.map((n) => api.getHardwareInfo(n, projectID)))
-      if (!alive.current || started !== version.current) return
-      setSets(infos)
-      setError(null)
-      setUpdatedAt(new Date())
-    } catch (err) {
-      if (alive.current && reason !== 'poll') setError(errorMessage(err, 'Could not load hardware'))
-    } finally {
-      if (alive.current) {
-        setLoading(false)
-        setRefreshing(false)
-      }
-    }
-  }, [projectID])
-
-  // Loads on mount, and again when the server comes back so stale numbers get replaced.
-  useEffect(() => {
-    if (connection === 'offline') return
-    // load() only sets state after its awaited requests finish, never synchronously here.
-    // oxlint-disable-next-line react/set-state-in-effect
-    load('initial')
-  }, [connection, load])
-
-  // Re-reads on a timer and when the tab becomes visible again. A hidden tab makes no requests.
-  useEffect(() => {
-    if (connection === 'offline') return
-    const tick = () => {
-      if (document.visibilityState === 'visible') load('poll')
-    }
-    const timer = setInterval(tick, POLL_INTERVAL_MS)
-    document.addEventListener('visibilitychange', tick)
-    return () => {
-      clearInterval(timer)
-      document.removeEventListener('visibilitychange', tick)
-    }
-  }, [connection, load])
-
-  const refreshNow = () => {
-    setRefreshing(true)
-    load('manual')
-  }
-
-  const replace = (updated: HardwareSet) => {
-    version.current++
-    setSets((prev) => prev.map((s) => (s.name === updated.name ? updated : s)))
-  }
-
   return (
     <div>
       <button className="btn btn-ghost btn-sm" style={{ marginBottom: 16 }} onClick={onBack}>← Projects</button>
@@ -123,7 +54,7 @@ export default function ResourcesView({ projectID, userID, onBack }: Props) {
         <div className="section-title">RESOURCES</div>
         <div className="section-desc">Working under project · {projectID}</div>
         <div className="refresh-row">
-          <button className="btn btn-ghost btn-sm" disabled={refreshing || connection === 'offline'} onClick={refreshNow}>
+          <button className="btn btn-ghost btn-sm" disabled={refreshing || connection === 'offline'} onClick={refresh}>
             {refreshing ? 'Refreshing…' : '↻ Refresh'}
           </button>
           {updatedAt && <span className="none-label">Updated {updatedAt.toLocaleTimeString()}</span>}
