@@ -79,6 +79,14 @@ describe('mock hardware', () => {
     expect(get('/hw_availability')?.body).toMatchObject([{ available: 65 }, { available: 85 }])
   })
 
+  it('adds what the named project holds to each set\'s availability', () => {
+    expect(get('/hw_availability', { projectID: 'PROJ0001' })?.body).toEqual([
+      { name: 'HWSet1', capacity: 100, available: 70, checkedOut: 20 },
+      { name: 'HWSet2', capacity: 100, available: 85, checkedOut: 0 },
+    ])
+    expect(get('/hw_availability', { projectID: 'PROJ9999' })?.status).toBe(404)
+  })
+
   it('reports how many units the project holds', () => {
     expect(get('/get_hw_info', { name: 'HWSet1' })?.body).toEqual({ name: 'HWSet1', capacity: 100, available: 70 })
     expect(get('/get_hw_info', { name: 'HWSet1', projectID: 'PROJ0001' })?.body).toMatchObject({ available: 70, checkedOut: 20 })

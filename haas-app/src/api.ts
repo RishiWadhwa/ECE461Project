@@ -221,10 +221,12 @@ export abstract class ApiClient {
   getHardwareNames = () => this.get<{ names: string[] }>('/get_all_hw_names')
 
   /**
-   * GET /hw_availability  (read). Returns every set's { name, capacity, available } in one request,
-   * which is what the Resources page polls for live updates.
+   * GET /hw_availability?projectID=  (read). Returns every set's { name, capacity, available } in one
+   * request, which is what the Resources page polls for live updates. With `projectID`, each set also has
+   * `checkedOut` (units that project holds), as getHardwareInfo does. Errors: 404 unknown project.
    */
-  getHardwareAvailability = () => this.get<HardwareSet[]>('/hw_availability')
+  getHardwareAvailability = (projectID?: string) =>
+    this.get<HardwareSet[]>('/hw_availability', projectID ? { projectID } : {})
 
   /**
    * GET /get_hw_info?name=&projectID=  (read). Returns one set's { name, capacity, available }.

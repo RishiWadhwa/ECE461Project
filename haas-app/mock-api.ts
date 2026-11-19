@@ -89,8 +89,13 @@ export function handle(
       return ok({ status: 'ok' })
     case '/get_all_hw_names':
       return ok({ names: [...db.hardware.keys()] })
-    case '/hw_availability':
-      return ok([...db.hardware.values()].map((hw) => ({ ...hw })))
+    case '/hw_availability': {
+      const projectID = query.get('projectID') ?? ''
+      if (!projectID) return ok([...db.hardware.values()].map((hw) => ({ ...hw })))
+      if (!db.projects.has(projectID)) return fail(404, 'Project not found')
+      const held = db.holdings.get(projectID)
+      return ok([...db.hardware.values()].map((hw) => ({ ...hw, checkedOut: held?.get(hw.name) ?? 0 })))
+    }
     case '/get_hw_info': {
       const hw = db.hardware.get(query.get('name') ?? '')
       if (!hw) return fail(404, 'Hardware set not found')

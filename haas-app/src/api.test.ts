@@ -67,6 +67,12 @@ describe('api requests', () => {
     expect(fetchMock.mock.calls.map((c) => c[0])).toEqual(['/health', '/hw_availability'])
   })
 
+  it('asks for a project\'s holdings when getHardwareAvailability is given a projectID', async () => {
+    fetchMock.mockReturnValueOnce(reply(200, []))
+    await api.getHardwareAvailability('PROJ0001')
+    expect(fetchMock).toHaveBeenCalledWith('/hw_availability?projectID=PROJ0001', expect.anything())
+  })
+
   it('throws an ApiError carrying the status and the server message', async () => {
     fetchMock.mockReturnValueOnce(reply(409, { error: 'Only 3 units of HWSet1 available' }))
     const err = await api.checkOut('testuser', 'PROJ0001', 'HWSet1', validateQuantity(Integer.of(5), Integer.of(10))).catch((e) => e)

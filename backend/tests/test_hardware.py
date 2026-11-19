@@ -63,6 +63,34 @@ def test_hw_availability_is_empty_without_hardware(client):
     assert r.status_code == 200
     assert r.get_json() == []
 
+def test_hw_availability_without_a_project_has_no_checked_out(client, hw):
+    create_project(client)
+    assert check_out(client, 30).status_code == 200
+    assert all("checkedOut" not in s for s in client.get("/hw_availability").get_json())
+
+def test_hw_availability_reports_what_the_named_project_holds(client, hw):
+    create_project(client)
+    create_project(client, owner="bobby", project="PROJ2222")
+    assert check_out(client, 30).status_code == 200
+    assert check_out(client, 10, user="bobby", project="PROJ2222").status_code == 200
+
+    sets = {s["name"]: s for s in client.get("/hw_availability?projectID=PROJ1234").get_json()}
+    # The pool counts both projects; checkedOut is only this project's share.
+    assert sets["HWSet1"] == {"name": "HWSet1", "capacity": 100, "available": 60, "checkedOut": held(hw)}
+    assert sets["HWSet1"]["checkedOut"] == 30
+    assert sets["HWSet2"]["checkedOut"] == held(hw, hardware_id="HWSET002") == 0
+
+def test_hw_availability_accepts_a_lowercase_project_id(client, hw):
+    create_project(client)
+    assert check_out(client, 5).status_code == 200
+    sets = {s["name"]: s for s in client.get("/hw_availability?projectID=proj1234").get_json()}
+    assert sets["HWSet1"]["checkedOut"] == 5
+
+def test_hw_availability_unknown_project_is_404(client, hw):
+    r = client.get("/hw_availability?projectID=PROJ9999")
+    assert r.status_code == 404
+    assert "error" in r.get_json()
+
 def test_get_hw_info(client, hw):
     r = client.get("/get_hw_info?name=HWSet1")
     assert r.status_code == 200
