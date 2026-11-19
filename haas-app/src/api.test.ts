@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApi, HttpApiClient } from './api.ts'
 import { ApiError, NetworkError } from './errors.ts'
-import { getConnectionStatus, markOnline, PROBE_INTERVAL_MS } from './connection.ts'
+import { getConnectionStatus, markOnline, PROBE_INTERVAL_MS, startHeartbeat } from './connection.ts'
 import { Integer } from './math.ts'
 import { validateCreds, validateProjectID, validateQuantity } from './validation.ts'
 
@@ -101,20 +101,65 @@ describe('network failures', () => {
     expect(getConnectionStatus()).toBe('offline')
   })
 
-  it('probes while offline and comes back online once the server answers', async () => {
+})
+
+describe('heartbeat', () => {
+  let stop: () => void = () => {}
+  afterEach(() => stop())
+
+  it('pings /health at once and then on every interval, whether online or offline', async () => {
     vi.useFakeTimers()
-    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'))
-    await api.getHardwareNames().catch(() => {})
+    fetchMock.mockImplementation(() => reply(200, { status: 'ok' }))
+    stop = startHeartbeat()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenLastCalledWith('/health', expect.anything())
+
+    // Keeps going while online: this is what catches the server going down while the page sits idle.
+    await vi.advanceTimersByTimeAsync(PROBE_INTERVAL_MS * 3)
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+  })
+
+  it('goes offline when the database is down (503) and back online once it answers', async () => {
+    vi.useFakeTimers()
+    fetchMock.mockReturnValueOnce(reply(503, { error: 'The database is unavailable.' }))
+    stop = startHeartbeat()
+    await vi.advanceTimersByTimeAsync(0)
     expect(getConnectionStatus()).toBe('offline')
 
     fetchMock.mockReturnValueOnce(reply(200, { status: 'ok' }))
     await vi.advanceTimersByTimeAsync(PROBE_INTERVAL_MS)
     expect(getConnectionStatus()).toBe('online')
-    expect(fetchMock).toHaveBeenLastCalledWith('/health', expect.anything())
+  })
 
-    // Probing stops once the server is back.
+  it('does not start a new ping while the last one is still waiting', async () => {
+    vi.useFakeTimers()
+    let answer: (r: Response) => void = () => {}
+    fetchMock.mockReturnValueOnce(new Promise<Response>((resolve) => { answer = resolve }))
+    stop = startHeartbeat()
     await vi.advanceTimersByTimeAsync(PROBE_INTERVAL_MS * 3)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    // Once it answers, the next tick pings again.
+    answer(new Response(JSON.stringify({ status: 'ok' }), { status: 200 }))
+    fetchMock.mockImplementation(() => reply(200, { status: 'ok' }))
+    await vi.advanceTimersByTimeAsync(PROBE_INTERVAL_MS)
     expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('skips pings while the tab is hidden and checks as soon as it is shown', async () => {
+    vi.useFakeTimers()
+    const page = Object.assign(new EventTarget(), { visibilityState: 'hidden' })
+    vi.stubGlobal('document', page)
+    fetchMock.mockImplementation(() => reply(200, { status: 'ok' }))
+    stop = startHeartbeat()
+    await vi.advanceTimersByTimeAsync(PROBE_INTERVAL_MS * 3)
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    page.visibilityState = 'visible'
+    page.dispatchEvent(new Event('visibilitychange'))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })
 
