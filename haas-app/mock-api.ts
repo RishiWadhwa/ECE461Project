@@ -42,6 +42,9 @@ export function handle(
   b: Record<string, any>,
 ): MockResponse | null {
   const isPost = method === 'POST'
+  // Flask uppercases project IDs before using them (backend/project_routes.py), so the mock does too.
+  if (typeof b.projectID === 'string') b.projectID = b.projectID.trim().toUpperCase()
+  if (query.has('projectID')) query.set('projectID', query.get('projectID')!.trim().toUpperCase())
 
   switch (path) {
     case '/login':
@@ -82,8 +85,17 @@ export function handle(
       if (db.memberships.get(b.userID)?.has(b.projectID)) return fail(409, 'You are already part of this project')
       addMember(db, b.userID, b.projectID)
       return ok(db.projects.get(b.projectID))
+    case '/health':
+      return ok({ status: 'ok' })
     case '/get_all_hw_names':
       return ok({ names: [...db.hardware.keys()] })
+    case '/hw_availability': {
+      const projectID = query.get('projectID') ?? ''
+      if (!projectID) return ok([...db.hardware.values()].map((hw) => ({ ...hw })))
+      if (!db.projects.has(projectID)) return fail(404, 'Project not found')
+      const held = db.holdings.get(projectID)
+      return ok([...db.hardware.values()].map((hw) => ({ ...hw, checkedOut: held?.get(hw.name) ?? 0 })))
+    }
     case '/get_hw_info': {
       const hw = db.hardware.get(query.get('name') ?? '')
       if (!hw) return fail(404, 'Hardware set not found')

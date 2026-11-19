@@ -1,6 +1,8 @@
 import os
 
-from flask import Flask
+from flask import Flask, jsonify
+
+from mongodb import connection
 
 from .auth_routes import bp as auth_bp
 from .hw_routes import bp as hw_bp
@@ -54,6 +56,14 @@ def create_app() -> Flask:
     register_error_handlers(app)
     for bp in (auth_bp, project_bp, hw_bp):
         app.register_blueprint(bp)
+
+    # The frontend's heartbeat. No login needed. If the database does not answer, ping() raises
+    # ConnectionFailure and errors.py turns it into the 503 the frontend reads as "server offline".
+    @app.get("/health")
+    def health():
+        connection.ping()
+        return jsonify({"status": "ok"})
+
     return app
 
 if __name__ == "__main__":

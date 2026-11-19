@@ -97,9 +97,9 @@ export abstract class ApiClient {
   protected abstract send(method: Method, path: string, query: Record<string, string>, body?: unknown): Promise<RawResponse>
 
   constructor() {
-    // While offline, connection.ts retries this cheap read-only call to detect when the server is back.
+    // connection.ts calls GET /health to tell whether the server and its database are reachable.
     // The app only ever makes one client (createApi), so the newest client owns the probe.
-    setProbe(this.getHardwareNames)
+    setProbe(this.health)
   }
 
   /**
@@ -204,16 +204,29 @@ export abstract class ApiClient {
   joinProject = (userID: string, projectID: ProjectID) =>
     this.post<Project>('/join_project', { userID, projectID })
 
+  // ---- Health ----
+
+  /**
+   * GET /health  (read). Returns { status: 'ok' } once Flask has pinged MongoDB; a 503 means the database
+   * did not answer. This is the check connection.ts runs (see setProbe in the constructor). No login needed.
+   */
+  health = () => this.get<{ status: string }>('/health')
+
   // ---- Hardware ----
 
   /**
    * GET /get_all_hw_names  (read). Returns { names: ['HWSet1', 'HWSet2', ...] }.
-   * The Hardware page builds its cards from this list, so no set names are hard-coded (R2-2).
-   * This is also the "is the server back?" check that connection.ts runs every 5 seconds while offline
-   * (see setProbe in the constructor). The backend must keep it cheap and open to everyone, with no login
-   * needed (roadmap section 1).
+   * No set names are hard-coded in the pages (R2-2); they come from here or from getHardwareAvailability.
    */
   getHardwareNames = () => this.get<{ names: string[] }>('/get_all_hw_names')
+
+  /**
+   * GET /hw_availability?projectID=  (read). Returns every set's { name, capacity, available } in one
+   * request, which is what the Resources page polls for live updates. With `projectID`, each set also has
+   * `checkedOut` (units that project holds), as getHardwareInfo does. Errors: 404 unknown project.
+   */
+  getHardwareAvailability = (projectID?: string) =>
+    this.get<HardwareSet[]>('/hw_availability', projectID ? { projectID } : {})
 
   /**
    * GET /get_hw_info?name=&projectID=  (read). Returns one set's { name, capacity, available }.

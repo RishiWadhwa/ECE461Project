@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApi, HttpApiClient } from './api.ts'
 import { ApiError, NetworkError } from './errors.ts'
-import { getConnectionStatus, markOnline, PROBE_INTERVAL_MS } from './connection.ts'
+import { getConnectionStatus, markOnline, PROBE_INTERVAL_MS, startHeartbeat } from './connection.ts'
 import { Integer } from './math.ts'
 import { validateCreds, validateProjectID, validateQuantity } from './validation.ts'
 
@@ -54,14 +54,28 @@ describe('api requests', () => {
   it('sends validated values as plain JSON', async () => {
     fetchMock.mockReturnValue(reply(200, {}))
     await api.login(validateCreds('testuser', 'test1234', 'signIn'))
-    await api.checkOut('testuser', 'demoproj1', 'HWSet1', validateQuantity(Integer.of(5), Integer.of(10)))
+    await api.checkOut('testuser', 'PROJ0001', 'HWSet1', validateQuantity(Integer.of(5), Integer.of(10)))
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ userID: 'testuser', password: 'test1234' })
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ userID: 'testuser', projectID: 'demoproj1', hwSet: 'HWSet1', quantity: 5 })
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ userID: 'testuser', projectID: 'PROJ0001', hwSet: 'HWSet1', quantity: 5 })
+  })
+
+  it('reads health and every set\'s availability from their routes', async () => {
+    const sets = [{ name: 'HWSet1', capacity: 100, available: 70 }]
+    fetchMock.mockReturnValueOnce(reply(200, { status: 'ok' })).mockReturnValueOnce(reply(200, sets))
+    await expect(api.health()).resolves.toEqual({ status: 'ok' })
+    await expect(api.getHardwareAvailability()).resolves.toEqual(sets)
+    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual(['/health', '/hw_availability'])
+  })
+
+  it('asks for a project\'s holdings when getHardwareAvailability is given a projectID', async () => {
+    fetchMock.mockReturnValueOnce(reply(200, []))
+    await api.getHardwareAvailability('PROJ0001')
+    expect(fetchMock).toHaveBeenCalledWith('/hw_availability?projectID=PROJ0001', expect.anything())
   })
 
   it('throws an ApiError carrying the status and the server message', async () => {
     fetchMock.mockReturnValueOnce(reply(409, { error: 'Only 3 units of HWSet1 available' }))
-    const err = await api.checkOut('testuser', 'demoproj1', 'HWSet1', validateQuantity(Integer.of(5), Integer.of(10))).catch((e) => e)
+    const err = await api.checkOut('testuser', 'PROJ0001', 'HWSet1', validateQuantity(Integer.of(5), Integer.of(10))).catch((e) => e)
     expect(err).toBeInstanceOf(ApiError)
     expect(err.isConflict()).toBe(true)
     expect(err.message).toBe('Only 3 units of HWSet1 available')
@@ -93,19 +107,65 @@ describe('network failures', () => {
     expect(getConnectionStatus()).toBe('offline')
   })
 
-  it('probes while offline and comes back online once the server answers', async () => {
+})
+
+describe('heartbeat', () => {
+  let stop: () => void = () => {}
+  afterEach(() => stop())
+
+  it('pings /health at once and then on every interval, whether online or offline', async () => {
     vi.useFakeTimers()
-    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'))
-    await api.getHardwareNames().catch(() => {})
+    fetchMock.mockImplementation(() => reply(200, { status: 'ok' }))
+    stop = startHeartbeat()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenLastCalledWith('/health', expect.anything())
+
+    // Keeps going while online: this is what catches the server going down while the page sits idle.
+    await vi.advanceTimersByTimeAsync(PROBE_INTERVAL_MS * 3)
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+  })
+
+  it('goes offline when the database is down (503) and back online once it answers', async () => {
+    vi.useFakeTimers()
+    fetchMock.mockReturnValueOnce(reply(503, { error: 'The database is unavailable.' }))
+    stop = startHeartbeat()
+    await vi.advanceTimersByTimeAsync(0)
     expect(getConnectionStatus()).toBe('offline')
 
-    fetchMock.mockReturnValueOnce(reply(200, { names: ['HWSet1'] }))
+    fetchMock.mockReturnValueOnce(reply(200, { status: 'ok' }))
     await vi.advanceTimersByTimeAsync(PROBE_INTERVAL_MS)
     expect(getConnectionStatus()).toBe('online')
+  })
 
-    // Probing stops once the server is back.
+  it('does not start a new ping while the last one is still waiting', async () => {
+    vi.useFakeTimers()
+    let answer: (r: Response) => void = () => {}
+    fetchMock.mockReturnValueOnce(new Promise<Response>((resolve) => { answer = resolve }))
+    stop = startHeartbeat()
     await vi.advanceTimersByTimeAsync(PROBE_INTERVAL_MS * 3)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    // Once it answers, the next tick pings again.
+    answer(new Response(JSON.stringify({ status: 'ok' }), { status: 200 }))
+    fetchMock.mockImplementation(() => reply(200, { status: 'ok' }))
+    await vi.advanceTimersByTimeAsync(PROBE_INTERVAL_MS)
     expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('skips pings while the tab is hidden and checks as soon as it is shown', async () => {
+    vi.useFakeTimers()
+    const page = Object.assign(new EventTarget(), { visibilityState: 'hidden' })
+    vi.stubGlobal('document', page)
+    fetchMock.mockImplementation(() => reply(200, { status: 'ok' }))
+    stop = startHeartbeat()
+    await vi.advanceTimersByTimeAsync(PROBE_INTERVAL_MS * 3)
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    page.visibilityState = 'visible'
+    page.dispatchEvent(new Event('visibilitychange'))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })
 
@@ -120,9 +180,9 @@ describe('API calls only accept validated values', () => {
       // @ts-expect-error sign-in checks are too weak to create an account
       () => api.addUser(validateCreds('testuser', 'test1234', 'signIn')),
       // @ts-expect-error a parsed Integer has not been checked against the limit
-      () => api.checkOut('demoproj1', 'HWSet1', Integer.of(5)),
+      () => api.checkOut('PROJ0001', 'HWSet1', Integer.of(5)),
       // @ts-expect-error a plain string has not passed validateProjectID
-      () => api.joinProject('testuser', 'demoproj1'),
+      () => api.joinProject('testuser', 'PROJ0001'),
     ]
     expect(unvalidated).toHaveLength(4)
   })
@@ -130,7 +190,7 @@ describe('API calls only accept validated values', () => {
   it('accepts the same calls once the values are validated', () => {
     const validated = [
       () => api.addUser(validateCreds('testuser', 'test1234', 'signUp')),
-      () => api.joinProject('testuser', validateProjectID('demoproj1')),
+      () => api.joinProject('testuser', validateProjectID('PROJ0001')),
     ]
     expect(validated).toHaveLength(2)
   })
