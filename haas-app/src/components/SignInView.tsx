@@ -18,12 +18,12 @@ export default function SignInView({ onSignedIn }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [showNewUser, setShowNewUser] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
-  // Sign In accepts anything non-empty (older accounts keep working), so these only state the format for new
-  // accounts: neutral lines with no met/not-met state, built from the same rules as sign-up.
-  const idHints = useHints(userID, [])
-  const pwHints = useHints(password, [])
-  const idFormat = userIDRules('').map((r) => ({ label: r.label }))
-  const pwFormat = passwordRules('').map((r) => ({ label: r.label }))
+  // Same rules as sign-up, shown live (green once met). They are guidance only: submit still accepts anything
+  // non-empty so older accounts keep working.
+  const idRules = userIDRules(userID.trim())
+  const pwRules = passwordRules(password)
+  const idHints = useHints(userID.trim(), idRules)
+  const pwHints = useHints(password, pwRules)
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -59,7 +59,7 @@ export default function SignInView({ onSignedIn }: Props) {
               aria-describedby="userid-hints"
               {...idHints.bind}
             />
-            <FieldHints id="userid-hints" hints={idFormat} open={idHints.open} />
+            <FieldHints id="userid-hints" hints={idRules} open={idHints.open} />
           </div>
         </div>
 
@@ -76,7 +76,7 @@ export default function SignInView({ onSignedIn }: Props) {
               aria-describedby="password-hints"
               {...pwHints.bind}
             />
-            <FieldHints id="password-hints" hints={pwFormat} open={pwHints.open} />
+            <FieldHints id="password-hints" hints={pwRules} open={pwHints.open} />
           </div>
         </div>
 
