@@ -168,3 +168,5 @@ def _hardware_response(document: dict, checked_out: int | None = None) -> dict:
     if checked_out is not None:
         result["checkedOut"] = checked_out
     return result
+
+    

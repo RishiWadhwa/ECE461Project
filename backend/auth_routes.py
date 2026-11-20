@@ -4,13 +4,21 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from flask import Blueprint, jsonify, request
 from mongodb.connection import get_db
-from pymongo.errors import DuplicateKeyError
+from pymongo.errors import DuplicateKeyError, PyMongoError  
 
 from .errors import ApiError
 
 bp = Blueprint("auth", __name__)
 password_hasher = PasswordHasher()
 
+@bp.get("/ping")
+def ping_database():
+    try:
+        get_db().client.admin.command("ping")
+    except (PyMongoError, KeyError):
+        return jsonify({"status": "down"}), 503
+
+    return jsonify({"status": "ok"}), 200
 
 @bp.post("/login")
 def login():
