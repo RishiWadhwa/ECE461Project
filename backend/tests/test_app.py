@@ -108,3 +108,22 @@ def test_missing_static_file_is_404(static_client):
 def test_without_static_dir_there_is_no_page(client, monkeypatch):
     monkeypatch.delenv("STATIC_DIR", raising=False)
     assert client.get("/").status_code == 404
+
+
+# ---- health ----
+
+def test_health_is_ok_when_the_database_answers(client):
+    r = client.get("/health")
+    assert r.status_code == 200
+    assert r.get_json() == {"status": "ok"}
+
+def test_health_is_503_when_the_database_does_not_answer(client, monkeypatch):
+    from pymongo.errors import ServerSelectionTimeoutError
+    from mongodb import connection
+
+    def down():
+        raise ServerSelectionTimeoutError("no servers")
+    monkeypatch.setattr(connection, "ping", down)
+    r = client.get("/health")
+    assert r.status_code == 503
+    assert "error" in r.get_json()

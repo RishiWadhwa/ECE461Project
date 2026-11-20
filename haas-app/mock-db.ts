@@ -28,14 +28,14 @@ export function createSeededDB(): MockDB {
       ['bob', 'bob12345'],
     ]),
     projects: new Map([
-      ['demoproj1', { projectID: 'demoproj1', name: 'Demo Project', description: 'Seeded sample project' }],
-      ['rflabproj', { projectID: 'rflabproj', name: 'RF Lab', description: 'Software-defined radio experiments' }],
-      ['edgeproj42', { projectID: 'edgeproj42', name: 'Edge Compute', description: 'Shared project for alice and bob' }],
+      ['PROJ0001', { projectID: 'PROJ0001', name: 'Demo Project', description: 'Seeded sample project' }],
+      ['PROJ0002', { projectID: 'PROJ0002', name: 'RF Lab', description: 'Software-defined radio experiments' }],
+      ['PROJ0042', { projectID: 'PROJ0042', name: 'Edge Compute', description: 'Shared project for alice and bob' }],
     ]),
     memberships: new Map([
-      ['testuser', new Set(['demoproj1', 'rflabproj'])],
-      ['alice', new Set(['edgeproj42'])],
-      ['bob', new Set(['edgeproj42', 'rflabproj'])],
+      ['testuser', new Set(['PROJ0001', 'PROJ0002'])],
+      ['alice', new Set(['PROJ0042'])],
+      ['bob', new Set(['PROJ0042', 'PROJ0002'])],
     ]),
     hardware: new Map([
       ['HWSet1', { name: 'HWSet1', capacity: 100, available: 70 }],
@@ -43,8 +43,8 @@ export function createSeededDB(): MockDB {
     ]),
     // Must agree with hardware.available: HWSet1 100 - (20 + 10) = 70, HWSet2 100 - 15 = 85.
     holdings: new Map([
-      ['demoproj1', new Map([['HWSet1', 20]])],
-      ['rflabproj', new Map([['HWSet1', 10], ['HWSet2', 15]])],
+      ['PROJ0001', new Map([['HWSet1', 20]])],
+      ['PROJ0002', new Map([['HWSet1', 10], ['HWSet2', 15]])],
     ]),
   }
 }

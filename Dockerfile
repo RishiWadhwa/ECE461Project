@@ -35,4 +35,4 @@ USER haas
 EXPOSE 8000
 # gunicorn is a production web server; Flask's built-in one is for development only.
 # PORT can be overridden, since many cloud hosts tell the container which port to listen on.
-CMD ["sh", "-c", "exec gunicorn --bind 0.0.0.0:${PORT} --workers 2 backend.app:app"]
+CMD ["sh", "-c", "exec gunicorn --bind 0.0.0.0:${PORT} --workers 2 'backend.app:create_app()'"]
