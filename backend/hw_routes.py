@@ -15,6 +15,31 @@ def get_all_hw_names():
     return jsonify({"names": names})
 
 
+@bp.get("/hw_availability")
+def hw_availability():
+    """Every set's current numbers in one request, for the Resources page's live updates.
+    Optional projectID adds checkedOut (units that project holds) to each entry, as /get_hw_info does.
+
+    Each check-out or check-in changes one hardware document atomically, so every entry's capacity and
+    available always match. With a projectID, projects and hardware are two separate reads, so a check-out
+    that commits between them can make one response pair the new available with the old checkedOut (or the
+    reverse). That only affects what is shown: check_out re-checks availability inside its transaction,
+    and the next poll returns matching numbers.
+    shortcut: no snapshot read across both collections; add a ReadConcern("snapshot") session if the
+    numbers must match exactly on every response."""
+    project_id = request.args.get("projectID", "").strip().upper()
+    project = None
+    if project_id:
+        project = get_db()["projects"].find_one({"projectId": project_id}, {"_id": 0, "checkedOut": 1})
+        if project is None:
+            raise ApiError(404, f"Project with ID '{project_id}' not found")
+
+    documents = get_db()["hardware"].find({}, {"_id": 0, "hardwareId": 1, "name": 1, "capacity": 1, "available": 1})
+    if project is None:
+        return jsonify([_hardware_response(document) for document in documents])
+    return jsonify([_hardware_response(document, _held(project, document.get("hardwareId"))) for document in documents])
+
+
 @bp.get("/get_hw_info")
 def get_hw_info():
     name = request.args.get("name", "").strip()

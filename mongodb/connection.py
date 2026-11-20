@@ -3,6 +3,7 @@ from typing import Callable, TypeVar
 from functools import lru_cache
 from pathlib import Path
 
+import pymongo
 from pymongo import MongoClient
 from pymongo.database import Database
 from pymongo.client_session import ClientSession
@@ -37,6 +38,12 @@ def get_client() -> MongoClient:
 
 def get_db() -> Database:
     return get_client()[os.environ.get("MONGO_DB", "haas")]
+
+def ping() -> None:
+    """GET /health. Raises ConnectionFailure if the database does not answer.
+    The 2-second cap keeps a down database from holding the request for pymongo's default 30 seconds."""
+    with pymongo.timeout(2):
+        get_client().admin.command("ping")
 
 def run_in_transaction(work: Callable[[ClientSession], T]) -> T:
     with get_client().start_session() as session:

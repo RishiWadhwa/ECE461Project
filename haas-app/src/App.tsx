@@ -1,16 +1,23 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import SignInView from './components/SignInView.tsx'
 import ProjectsView from './components/ProjectsView.tsx'
 import ResourcesView from './components/ResourcesView.tsx'
 import ConnectionBanner from './components/ConnectionBanner.tsx'
 import { useConnectionStatus } from './connection.ts'
-import { clear as clearSession } from './session.ts'
+import { clear as clearSession, loadNav, saveNav } from './session.ts'
 
 export default function App() {
-  const [userID, setUserID] = useState<string | null>(null)
+  // Restored from sessionStorage so a refresh keeps the user on the same page (see session.ts).
+  const [initial] = useState(loadNav)
+  const [userID, setUserID] = useState<string | null>(initial.userID)
   // Three pages without a router: no userID shows Sign In, no projectID shows Projects, otherwise Hardware.
-  const [projectID, setProjectID] = useState<string | null>(null)
+  const [projectID, setProjectID] = useState<string | null>(initial.projectID)
   const connection = useConnectionStatus()
+
+  // Signed out writes nothing: signOut() already cleared the stored copy.
+  useEffect(() => {
+    if (userID) saveNav({ userID, projectID })
+  }, [userID, projectID])
 
   if (!userID) {
     return (

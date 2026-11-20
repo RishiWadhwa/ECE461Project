@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ValidationError } from './errors.ts'
 import { Integer } from './math.ts'
-import { validateCreds, validateProjectID, validateQuantity } from './validation.ts'
+import { passwordRules, projectIDRules, userIDRules, validateCreds, validateProjectID, validateQuantity } from './validation.ts'
 
 function caught(fn: () => void): ValidationError {
   try {
@@ -80,18 +80,21 @@ describe('validateCreds (signIn)', () => {
 })
 
 describe('validateProjectID', () => {
-  it('accepts letters and digits', () => {
-    expect(() => validateProjectID('project01')).not.toThrow()
+  it('accepts PROJ followed by digits', () => {
+    expect(() => validateProjectID('PROJ0001')).not.toThrow()
+    expect(() => validateProjectID('PROJ123456')).not.toThrow()
   })
 
-  it('accepts a project ID exactly at the minimum length', () => {
-    expect(() => validateProjectID('proj0001')).not.toThrow()
+  it('accepts any letter case and returns the ID in uppercase, like the backend', () => {
+    expect(validateProjectID('proj0001')).toBe('PROJ0001')
   })
 
   it.each([
     ['', 'Project ID is required!'],
-    ['proj001', 'Project ID must be at least 8 characters'],
-    ['project 01', 'Project ID can only contain letters and digits'],
+    ['PROJ001', 'Project ID must be at least 8 characters'],
+    ['project01', 'Project ID must be PROJ followed by at least 3 digits'],
+    ['PROJ00A1', 'Project ID must be PROJ followed by at least 3 digits'],
+    ['PROJ 001', 'Project ID must be PROJ followed by at least 3 digits'],
   ])('rejects %j', (value, message) => {
     expect(caught(() => validateProjectID(value)).messageFor('projectID')).toBe(message)
   })
@@ -131,8 +134,8 @@ describe('validators return the checked value', () => {
     expect(validateQuantity(five, Integer.of(10))).toBe(five)
   })
 
-  it('validateProjectID returns the same ID', () => {
-    expect(validateProjectID('project01')).toBe('project01')
+  it('validateProjectID returns the same ID when it is already uppercase', () => {
+    expect(validateProjectID('PROJ0001')).toBe('PROJ0001')
   })
 })
 
@@ -157,4 +160,50 @@ describe('blank input counts as missing', () => {
     expect(() => validateCreds('testuser', '  pass word  ', 'signUp')).not.toThrow()
     expect(validateCreds('testuser', '  pass word  ', 'signUp').password).toBe('  pass word  ')
   })
+})
+
+describe('requirement checklists', () => {
+  const met = (rules: { met: boolean }[]) => rules.map((r) => r.met)
+  const accepted = (check: () => unknown) => {
+    try { check(); return true } catch { return false }
+  }
+
+  it('userIDRules reports length and characters separately, at the edges', () => {
+    expect(met(userIDRules('abcd'))).toEqual([false, true])
+    expect(met(userIDRules('abcde'))).toEqual([true, true])
+    expect(met(userIDRules('a'.repeat(16)))).toEqual([true, true])
+    expect(met(userIDRules('a'.repeat(17)))).toEqual([false, true])
+    expect(met(userIDRules('abc def'))).toEqual([true, false])
+  })
+
+  it('passwordRules checks the length range, and a blank password does not count', () => {
+    expect(met(passwordRules('1234567'))).toEqual([false])
+    expect(met(passwordRules('12345678'))).toEqual([true])
+    expect(met(passwordRules('a'.repeat(65)))).toEqual([false])
+    expect(met(passwordRules(' '.repeat(8)))).toEqual([false])
+  })
+
+  it('projectIDRules explains what is missing as PROJ0001 is typed', () => {
+    expect(met(projectIDRules('PRO'))).toEqual([false, false, false])
+    expect(met(projectIDRules('PROJ'))).toEqual([true, false, false])
+    expect(met(projectIDRules('PROJ001'))).toEqual([true, true, false])
+    expect(met(projectIDRules('proj0001'))).toEqual([true, true, true])
+    expect(met(projectIDRules('PROJ00A1'))).toEqual([true, false, true])
+  })
+
+  // The checklist and the validators must never disagree about what is acceptable.
+  it.each(['', 'abcd', 'abcde', 'a'.repeat(16), 'a'.repeat(17), 'abc_def', 'abc def'])(
+    'userIDRules are all met exactly when sign-up accepts the userID %j', (id) => {
+      expect(userIDRules(id).every((r) => r.met)).toBe(accepted(() => validateCreds(id, 'password1', 'signUp')))
+    })
+
+  it.each(['', '1234567', '12345678', ' '.repeat(8), 'a'.repeat(64), 'a'.repeat(65)])(
+    'passwordRules are all met exactly when sign-up accepts the password %j', (pw) => {
+      expect(passwordRules(pw).every((r) => r.met)).toBe(accepted(() => validateCreds('alice1', pw, 'signUp')))
+    })
+
+  it.each(['', 'PROJ', 'PROJ001', 'PROJ0001', 'proj0001', 'PROJ00A1', 'PROJ 0001', 'ABCD0001'])(
+    'projectIDRules are all met exactly when validateProjectID accepts %j', (id) => {
+      expect(projectIDRules(id).every((r) => r.met)).toBe(accepted(() => validateProjectID(id)))
+    })
 })
