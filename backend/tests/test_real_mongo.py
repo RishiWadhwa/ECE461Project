@@ -54,6 +54,34 @@ def test_simultaneous_check_ins_never_return_more_than_held(client, hw):
     doc = hw["hardware"].find_one({"name": "HWSet1"})
     assert (doc["available"], doc["checkedOut"]) == (10, 0)
 
+def test_hw_availability_never_reports_impossible_numbers_during_check_outs(client, hw):
+    """Polls /hw_availability?projectID= while check-outs commit. Its two reads are not one snapshot, so a
+    response may pair numbers from either side of a commit, but no number may ever fall outside 0..capacity."""
+    create_project(client, "alice", "PROJ1234")
+    app = client.application
+    body = {"userID": "alice", "projectID": "PROJ1234", "hwSet": "HWSet1", "quantity": 1}
+
+    def check_out_one(_):
+        return app.test_client().post("/check_out", json=body).status_code
+
+    def poll(_):
+        r = app.test_client().get("/hw_availability?projectID=PROJ1234")
+        assert r.status_code == 200
+        return r.get_json()[0]
+
+    with ThreadPoolExecutor(max_workers=THREADS) as pool:
+        outs = pool.map(check_out_one, range(THREADS))
+        polls = pool.map(poll, range(THREADS))
+        statuses, seen = list(outs), list(polls)
+
+    assert statuses.count(200) == 10
+    for s in seen:
+        assert 0 <= s["available"] <= s["capacity"] == 10
+        assert 0 <= s["checkedOut"] <= 10
+    # Once the check-outs finish, one more read must match exactly.
+    final = client.get("/hw_availability?projectID=PROJ1234").get_json()[0]
+    assert (final["available"], final["checkedOut"]) == (0, 10)
+
 def test_simultaneous_registrations_of_one_id_create_one_user(client, db):
     body = {"userID": "alice", "password": "password123"}
     statuses = run_at_once(client, [("post", "/add_user", body)] * THREADS)

@@ -2,7 +2,9 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { api } from '../api.ts'
 import { errorMessage } from '../errors.ts'
-import { validateCreds } from '../validation.ts'
+import { passwordRules, userIDRules, validateCreds } from '../validation.ts'
+import FieldHints from './FieldHints.tsx'
+import { useHints } from '../useHints.ts'
 import NewUserModal from './NewUserModal.tsx'
 
 interface Props {
@@ -15,11 +17,19 @@ export default function SignInView({ onSignedIn }: Props) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showNewUser, setShowNewUser] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
+  // Same rules as sign-up, shown live (green once met). They are guidance only: submit still accepts anything
+  // non-empty so older accounts keep working.
+  const idRules = userIDRules(userID.trim())
+  const pwRules = passwordRules(password)
+  const idHints = useHints(userID.trim(), idRules)
+  const pwHints = useHints(password, pwRules)
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     setBusy(true)
     setError(null)
+    setNotice(null)
     try {
       const creds = validateCreds(userID.trim(), password, 'signIn')
       const res = await api.login(creds)
@@ -39,27 +49,38 @@ export default function SignInView({ onSignedIn }: Props) {
       <form className="form-panel signin-form" onSubmit={submit}>
         <div className="form-row">
           <label className="form-label" htmlFor="userid">User ID</label>
-          <input
-            id="userid"
-            className="form-input"
-            value={userID}
-            onChange={(e) => setUserID(e.target.value)}
-            autoComplete="username"
-          />
+          <div>
+            <input
+              id="userid"
+              className="form-input"
+              value={userID}
+              onChange={(e) => setUserID(e.target.value)}
+              autoComplete="username"
+              aria-describedby="userid-hints"
+              {...idHints.bind}
+            />
+            <FieldHints id="userid-hints" hints={idRules} open={idHints.open} />
+          </div>
         </div>
 
         <div className="form-row">
           <label className="form-label" htmlFor="password">Password</label>
-          <input
-            id="password"
-            className="form-input"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-          />
+          <div>
+            <input
+              id="password"
+              className="form-input"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              aria-describedby="password-hints"
+              {...pwHints.bind}
+            />
+            <FieldHints id="password-hints" hints={pwRules} open={pwHints.open} />
+          </div>
         </div>
 
+        {notice && <div className="msg msg-ok">✓ {notice}</div>}
         {error && <div className="msg msg-error">✕ {error}</div>}
 
         <button className="btn btn-block" disabled={busy || !userID.trim() || !password}>
@@ -73,10 +94,12 @@ export default function SignInView({ onSignedIn }: Props) {
       {showNewUser && (
         <NewUserModal
           onClose={() => setShowNewUser(false)}
+          onSignedIn={onSignedIn}
           onCreated={(id) => {
             setShowNewUser(false)
             setUserID(id)
             setPassword('')
+            setNotice('Account created. Please sign in.')
           }}
         />
       )}

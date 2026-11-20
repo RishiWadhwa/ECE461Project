@@ -1,11 +1,14 @@
 import os
 
-from flask import Flask
+from flask import Flask, jsonify
+
+from mongodb import connection
 
 from .auth_routes import bp as auth_bp
 from .hw_routes import bp as hw_bp
 from .project_routes import bp as project_bp
 from .errors import register_error_handlers
+from mongodb.connection import secure_indexes
 
 from flask_cors import CORS
 
@@ -13,6 +16,27 @@ from flask_cors import CORS
 
 # No request this API accepts is anywhere near this large.
 MAX_BODY_BYTES = 16 * 1024
+
+# Vite's dev server. Always allowed so `npm run dev:prod` can call this API.
+LOCAL_FRONTEND = "http://localhost:5173"
+
+
+def _allowed_origins() -> list[str]:
+    """Origins that may call the API from a browser.
+
+    Local Vite is always included. CORS_ORIGINS is a comma-separated list for a split
+    deploy, where the page is on another host (Netlify) and this process is only the API.
+    Leave it unset when Flask also serves the built page (the Docker image): that page is
+    same-origin and does not need a CORS entry. A trailing slash is ignored because the
+    browser sends the origin without one.
+    """
+    
+    origins = [LOCAL_FRONTEND]
+    for raw in os.environ.get("CORS_ORIGINS", "").split(","):
+        origin = raw.strip().rstrip("/")
+        if origin and origin not in origins:
+            origins.append(origin)
+    return origins
 
 
 def create_app() -> Flask:
@@ -24,18 +48,24 @@ def create_app() -> Flask:
         app.add_url_rule("/", "index", lambda: app.send_static_file("index.html"))
     else:
         app = Flask(__name__)
+
+    secure_indexes()
     
-    CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
+    CORS(app, resources={r"/*": {"origins": _allowed_origins()}})
     app.config["MAX_CONTENT_LENGTH"] = MAX_BODY_BYTES
     register_error_handlers(app)
     for bp in (auth_bp, project_bp, hw_bp):
         app.register_blueprint(bp)
+
+    # The frontend's heartbeat. No login needed. If the database does not answer, ping() raises
+    # ConnectionFailure and errors.py turns it into the 503 the frontend reads as "server offline".
+    @app.get("/health")
+    def health():
+        connection.ping()
+        return jsonify({"status": "ok"})
+
     return app
-
-
-app = create_app()
-
 
 if __name__ == "__main__":
     # MacOS' AirPlay service uses port 5000, so we use 5001 for Flask. The frontend is on 5173 (normal and not unusually...).
-    app.run(host="127.0.0.1", port=5001, debug=os.environ.get("FLASK_DEBUG") == "1")
+    create_app().run(host="127.0.0.1", port=5001, debug=os.environ.get("FLASK_DEBUG") == "1")

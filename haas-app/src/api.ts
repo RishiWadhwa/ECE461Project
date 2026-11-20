@@ -44,14 +44,14 @@ export interface ProjectInfo extends Project {
  * One hardware set (HWSet1, HWSet2, ...). In MongoDB this is a `hardwareSets` document.
  * Rule the backend keeps true: capacity = available + units held by all projects (roadmap section 4).
  *
- * TODO (roadmap sections 7.1 and 8): add `checkedOut?: number`. The backend will fill it in when the
- * request names a project. It is how many units that project holds, and it will replace the
- * Number.MAX_SAFE_INTEGER check-in limit in HardwareSetCard.
+ * `checkedOut` is present when the request named a project. It is how many units that project holds
+ * of this set, not the total checked out across every project.
  */
 export interface HardwareSet {
   name: string
   capacity: number
   available: number
+  checkedOut?: number
 }
 
 /**
@@ -97,9 +97,9 @@ export abstract class ApiClient {
   protected abstract send(method: Method, path: string, query: Record<string, string>, body?: unknown): Promise<RawResponse>
 
   constructor() {
-    // While offline, connection.ts retries this cheap read-only call to detect when the server is back.
+    // connection.ts calls GET /health to tell whether the server and its database are reachable.
     // The app only ever makes one client (createApi), so the newest client owns the probe.
-    setProbe(this.getHardwareNames)
+    setProbe(this.health)
   }
 
   /**
@@ -204,28 +204,41 @@ export abstract class ApiClient {
   joinProject = (userID: string, projectID: ProjectID) =>
     this.post<Project>('/join_project', { userID, projectID })
 
+  // ---- Health ----
+
+  /**
+   * GET /health  (read). Returns { status: 'ok' } once Flask has pinged MongoDB; a 503 means the database
+   * did not answer. This is the check connection.ts runs (see setProbe in the constructor). No login needed.
+   */
+  health = () => this.get<{ status: string }>('/health')
+
   // ---- Hardware ----
 
   /**
    * GET /get_all_hw_names  (read). Returns { names: ['HWSet1', 'HWSet2', ...] }.
-   * The Hardware page builds its cards from this list, so no set names are hard-coded (R2-2).
-   * This is also the "is the server back?" check that connection.ts runs every 5 seconds while offline
-   * (see setProbe in the constructor). The backend must keep it cheap and open to everyone, with no login
-   * needed (roadmap section 1).
+   * No set names are hard-coded in the pages (R2-2); they come from here or from getHardwareAvailability.
    */
   getHardwareNames = () => this.get<{ names: string[] }>('/get_all_hw_names')
 
   /**
-   * GET /get_hw_info?name=  (read). Returns one set's { name, capacity, available }. Errors: 404.
-   *
-   * TODO (roadmap sections 7.1 and 8): add an optional `projectID` parameter. When it is given, the
-   * backend also returns `checkedOut` (units that project holds). ResourcesView will pass it.
+   * GET /hw_availability?projectID=  (read). Returns every set's { name, capacity, available } in one
+   * request, which is what the Resources page polls for live updates. With `projectID`, each set also has
+   * `checkedOut` (units that project holds), as getHardwareInfo does. Errors: 404 unknown project.
    */
-  getHardwareInfo = (name: string) => this.get<HardwareSet>('/get_hw_info', { name })
+  getHardwareAvailability = (projectID?: string) =>
+    this.get<HardwareSet[]>('/hw_availability', projectID ? { projectID } : {})
+
+  /**
+   * GET /get_hw_info?name=&projectID=  (read). Returns one set's { name, capacity, available }.
+   * `projectID` is optional. When it is given, the response also includes `checkedOut` (units that
+   * project holds). Errors: 404 if the set, or the project when one was named, does not exist.
+   */
+  getHardwareInfo = (name: string, projectID?: string) =>
+    this.get<HardwareSet>('/get_hw_info', projectID ? { name, projectID } : { name })
 
   /**
    * POST /check_out  (write). Takes `quantity` units from the shared pool for a project and returns
-   * the updated HardwareSet.
+   * the updated HardwareSet, including `checkedOut` for this project.
    * Errors: 400 bad quantity, 403 not a member, 404 unknown project or set, 409 not enough units available.
    * A 409 means someone else got there first. HardwareSetCard refetches the numbers when it sees one.
    * This is a critical section, so the backend must do the availability check inside one atomic
@@ -238,11 +251,10 @@ export abstract class ApiClient {
 
   /**
    * POST /check_in  (write). Returns `quantity` units from a project to the shared pool and returns
-   * the updated HardwareSet.
+   * the updated HardwareSet, including `checkedOut` for this project.
    * Errors: 400 bad quantity, 403 not a member, 404 unknown project or set, 409 the project holds fewer
    * units than asked.
-   * Right now only the server enforces the "project holds enough" limit. Once `checkedOut` exists
-   * (see getHardwareInfo above), the frontend can check it too.
+   * HardwareSetCard also checks `checkedOut` before sending, and the server checks it again.
    * Same critical-section rules as check-out (roadmap section 6).
    */
   checkIn = (userID: string, projectID: string, hwSet: string, quantity: Quantity) =>

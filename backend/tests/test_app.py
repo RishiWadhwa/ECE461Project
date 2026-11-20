@@ -28,6 +28,48 @@ def test_preflight_allows_json_posts_from_the_frontend(client):
     assert "POST" in r.headers.get("Access-Control-Allow-Methods", "")
     assert "content-type" in r.headers.get("Access-Control-Allow-Headers", "").lower()
 
+# A split deploy: the page is on Netlify, this API is on another host. CORS_ORIGINS names the page.
+NETLIFY = "https://haas-demo.netlify.app"
+
+def _client_for_origins(monkeypatch, origins: str):
+    monkeypatch.setenv("CORS_ORIGINS", origins)
+    app = create_app()
+    app.config["TESTING"] = True
+    return app.test_client()
+
+def test_split_deploy_origin_is_allowed(db, monkeypatch):
+    client = _client_for_origins(monkeypatch, NETLIFY)
+    r = client.get("/get_all_hw_names", headers={"Origin": NETLIFY})
+    assert r.headers.get("Access-Control-Allow-Origin") == NETLIFY
+
+def test_local_frontend_stays_allowed_alongside_a_split_origin(db, monkeypatch):
+    client = _client_for_origins(monkeypatch, NETLIFY)
+    r = client.get("/get_all_hw_names", headers={"Origin": FRONTEND})
+    assert r.headers.get("Access-Control-Allow-Origin") == FRONTEND
+
+def test_unlisted_origin_stays_blocked_when_a_split_origin_is_set(db, monkeypatch):
+    client = _client_for_origins(monkeypatch, NETLIFY)
+    r = client.get("/get_all_hw_names", headers={"Origin": "http://evil.example"})
+    assert "Access-Control-Allow-Origin" not in r.headers
+
+def test_several_origins_and_a_trailing_slash(db, monkeypatch):
+    preview = "https://preview.netlify.app"
+    client = _client_for_origins(monkeypatch, f" {NETLIFY}/ , {preview} ")
+    for origin in (NETLIFY, preview):
+        r = client.get("/get_all_hw_names", headers={"Origin": origin})
+        assert r.headers.get("Access-Control-Allow-Origin") == origin
+
+def test_preflight_from_the_split_origin(db, monkeypatch):
+    client = _client_for_origins(monkeypatch, NETLIFY)
+    r = client.options("/login", headers={
+        "Origin": NETLIFY,
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "content-type",
+    })
+    assert r.headers.get("Access-Control-Allow-Origin") == NETLIFY
+    assert "POST" in r.headers.get("Access-Control-Allow-Methods", "")
+    assert "content-type" in r.headers.get("Access-Control-Allow-Headers", "").lower()
+
 
 # ---- serving the built frontend (Docker image) ----
 
@@ -66,3 +108,22 @@ def test_missing_static_file_is_404(static_client):
 def test_without_static_dir_there_is_no_page(client, monkeypatch):
     monkeypatch.delenv("STATIC_DIR", raising=False)
     assert client.get("/").status_code == 404
+
+
+# ---- health ----
+
+def test_health_is_ok_when_the_database_answers(client):
+    r = client.get("/health")
+    assert r.status_code == 200
+    assert r.get_json() == {"status": "ok"}
+
+def test_health_is_503_when_the_database_does_not_answer(client, monkeypatch):
+    from pymongo.errors import ServerSelectionTimeoutError
+    from mongodb import connection
+
+    def down():
+        raise ServerSelectionTimeoutError("no servers")
+    monkeypatch.setattr(connection, "ping", down)
+    r = client.get("/health")
+    assert r.status_code == 503
+    assert "error" in r.get_json()

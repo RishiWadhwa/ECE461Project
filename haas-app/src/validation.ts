@@ -1,5 +1,6 @@
 import { ValidationError, type Field } from "./errors.ts";
 import type { Integer } from "./math.ts"
+import type { Hint } from "./useHints.ts"
 
 /**
  * This variable is the fewest characters a userID may have.
@@ -27,9 +28,64 @@ const MAX_PASSWORD_LENGTH = 64;
 const MIN_PROJECT_ID_LENGTH = 8;
 
 /**
- * This variable is the pattern a whole userID or project ID must match: one or more letters or digits, nothing else.
+ * This variable is the pattern a whole userID must match: one or more letters or digits, nothing else.
  */
 const ALLOWED_CHARS = /^[a-zA-Z0-9]+$/;
+
+/**
+ * This variable is the pattern a project ID must match: "PROJ" followed by digits only, in any letter case.
+ * Together with MIN_PROJECT_ID_LENGTH it means PROJ and at least 4 digits, which also satisfies Flask's
+ * _project_id() in backend/project_routes.py (PROJ and at least 3 digits, uppercased before checking).
+ */
+const PROJECT_ID_PATTERN = /^PROJ[0-9]+$/i;
+
+/**
+ * These variables are the failure bits the check functions below return. Each check tests every rule and sets
+ * one bit per rule the value breaks, so 0 means valid. The bits are numbered in priority order: the lowest set
+ * bit is the problem reported on submit (see firstMessage()), and the requirement checklists shown while typing
+ * read the individual bits. That way each rule is written once and the form and the checklist cannot disagree.
+ */
+const REQUIRED = 1 << 0;
+const TOO_SHORT = 1 << 1;
+const TOO_LONG = 1 << 2;
+const NO_PREFIX = 1 << 3;
+const BAD_CHARS = 1 << 4;
+
+/**
+ * This type maps each failure bit a check can set to the message shown for it.
+ */
+type Messages = Partial<Record<number, string>>;
+
+const USERID_MESSAGES: Messages = {
+    [REQUIRED]: "UserID is required!",
+    [TOO_SHORT]: `UserID must be at least ${MIN_USERID_LENGTH} characters!`,
+    [TOO_LONG]: `UserID must be at most ${MAX_USERID_LENGTH} characters!`,
+    [BAD_CHARS]: "This UserID contains invalid characters!",
+};
+
+const PASSWORD_MESSAGES: Messages = {
+    [REQUIRED]: "Password is required!",
+    [TOO_SHORT]: `Password must be at least ${MIN_PASSWORD_LENGTH} characters!`,
+    [TOO_LONG]: `Password must be at most ${MAX_PASSWORD_LENGTH} characters!`,
+};
+
+const PROJECT_ID_FORMAT = "Project ID must be PROJ followed by at least 3 digits";
+const PROJECT_ID_MESSAGES: Messages = {
+    [REQUIRED]: "Project ID is required!",
+    [TOO_SHORT]: `Project ID must be at least ${MIN_PROJECT_ID_LENGTH} characters`,
+    [NO_PREFIX]: PROJECT_ID_FORMAT,
+    [BAD_CHARS]: PROJECT_ID_FORMAT,
+};
+
+/**
+ * This function picks the message for the highest-priority failure in a check's result.
+ * @param failed This parameter is the bitmask a check function returned.
+ * @param messages This parameter is that field's message for each bit.
+ * @returns This function returns the message for the lowest set bit (failed & -failed isolates it), or null if nothing failed.
+ */
+function firstMessage(failed: number, messages: Messages): string | null {
+    return failed === 0 ? null : messages[failed & -failed] ?? null;
+}
 
 /**
  * This type is which form validateCreds is checking: "signIn" only requires both fields to be filled in,
@@ -75,44 +131,33 @@ export type SignInCredentials = {readonly userID: string; readonly password: str
 export type NewUserCredentials = {readonly userID: string; readonly password: string} & Validated<"SignUp">;
 
 /**
- * This function checks a single userID against the userID rules.
- * @param value This parameter is the userID the user typed.
- * @returns This method returns a message describing the first rule the userID breaks, or null if it is valid.
+ * This function checks a single userID against every userID rule.
+ * @param value This parameter is the userID the user typed, or has typed so far.
+ * @returns This method returns a bitmask of the rules the userID breaks (REQUIRED, TOO_SHORT, TOO_LONG,
+ * BAD_CHARS), or 0 if it is valid.
  */
-function checkUserID(value: string): string | null {
-    const requiredMsg = checkRequired(value, "UserID");
-    if (requiredMsg != null) {
-        return requiredMsg;
-    } else if (value.length < MIN_USERID_LENGTH) {
-        return `UserID must be at least ${MIN_USERID_LENGTH} characters!`;
-    } else if (value.length > MAX_USERID_LENGTH) {
-        return `UserID must be at most ${MAX_USERID_LENGTH} characters!`;
-    } else {
-        // validate the characters.
-        if (!ALLOWED_CHARS.test(value)) {
-            return "This UserID contains invalid characters!";
-        }
-    }
-
-    return null;
+function checkUserID(value: string): number {
+    let failed = 0;
+    if (value.trim().length === 0) failed |= REQUIRED;
+    if (value.length < MIN_USERID_LENGTH) failed |= TOO_SHORT;
+    if (value.length > MAX_USERID_LENGTH) failed |= TOO_LONG;
+    if (!ALLOWED_CHARS.test(value)) failed |= BAD_CHARS;
+    return failed;
 }
 
 /**
- * This function checks a single password against the password rules.
- * @param value This parameter is the password the user typed.
- * @returns This method returns a message describing the first rule the password breaks, or null if it is valid.
+ * This function checks a single password against every password rule.
+ * @param value This parameter is the password the user typed, or has typed so far.
+ * @returns This method returns a bitmask of the rules the password breaks (REQUIRED, TOO_SHORT, TOO_LONG),
+ * or 0 if it is valid.
  */
-function checkPassword(value: string): string | null {
-    const requiredMsg = checkRequired(value, "Password")
-    if (requiredMsg != null) {
-        return requiredMsg;
-    } else if (value.length < MIN_PASSWORD_LENGTH) {
-        return `Password must be at least ${MIN_PASSWORD_LENGTH} characters!`;
-    } else if (value.length > MAX_PASSWORD_LENGTH) {
-        return `Password must be at most ${MAX_PASSWORD_LENGTH} characters!`;
-    }
-    // We can add more password rules here!
-    return null;
+function checkPassword(value: string): number {
+    let failed = 0;
+    if (value.trim().length === 0) failed |= REQUIRED;
+    if (value.length < MIN_PASSWORD_LENGTH) failed |= TOO_SHORT;
+    if (value.length > MAX_PASSWORD_LENGTH) failed |= TOO_LONG;
+    // We can add more password rules here: give each one a bit and a message in PASSWORD_MESSAGES.
+    return failed;
 }
 
 /**
@@ -147,20 +192,18 @@ function checkRequired(value: string, label: string): string | null {
 }
 
 /**
- * This function checks a single project ID against the project ID rules.
- * @param value This parameter is the project ID the user typed to create or join a project.
- * @returns This function returns a message describing the first rule the project ID breaks, or null if it is valid.
+ * This function checks a single project ID against every project ID rule.
+ * @param value This parameter is the project ID the user typed to create or join a project, or has typed so far.
+ * @returns This function returns a bitmask of the rules the project ID breaks (REQUIRED, TOO_SHORT,
+ * NO_PREFIX, BAD_CHARS), or 0 if it is valid.
  */
-function checkProjectID(value: string): string | null {
-    const requiredMsg = checkRequired(value, "Project ID");
-    if (requiredMsg != null) {
-        return requiredMsg;
-    } else if (value.length < MIN_PROJECT_ID_LENGTH) {
-        return `Project ID must be at least ${MIN_PROJECT_ID_LENGTH} characters`;
-    } else if (!ALLOWED_CHARS.test(value)) {
-        return "Project ID can only contain letters and digits";
-    }
-    return null
+function checkProjectID(value: string): number {
+    let failed = 0;
+    if (value.trim().length === 0) failed |= REQUIRED;
+    if (value.length < MIN_PROJECT_ID_LENGTH) failed |= TOO_SHORT;
+    if (!/^PROJ/i.test(value)) failed |= NO_PREFIX;
+    if (!PROJECT_ID_PATTERN.test(value)) failed |= BAD_CHARS;
+    return failed;
 }
 
 /**
@@ -200,8 +243,8 @@ export function validateCreds(userID: string, password: string, mode: CredsMode)
         userIDMsg = checkRequired(userID, "UserID");
         passwordMsg = checkRequired(password, "Password");
     } else {
-        userIDMsg = checkUserID(userID)
-        passwordMsg = checkPassword(password)
+        userIDMsg = firstMessage(checkUserID(userID), USERID_MESSAGES)
+        passwordMsg = firstMessage(checkPassword(password), PASSWORD_MESSAGES)
     }
 
     if (userIDMsg !== null) {
@@ -235,12 +278,52 @@ export function validateQuantity(value: Integer, max: Integer): Quantity {
 /**
  * This function validates a project ID before a create or join request and throws a ValidationError if it is invalid.
  * @param value This parameter is the project ID the user typed.
+ * @returns This function returns the ID in uppercase, which is the form the backend stores and returns.
  */
 export function validateProjectID(value: string): ProjectID {
-    let projectidMsg = checkProjectID(value);
+    let projectidMsg = firstMessage(checkProjectID(value), PROJECT_ID_MESSAGES);
     if (projectidMsg !== null) {
         throw new ValidationError([{object: "projectID", message: projectidMsg}]);
     }
 
-    return value as ProjectID;
+    return value.toUpperCase() as ProjectID;
+}
+
+/**
+ * This function lists the userID requirements for the checklist shown while a new userID is typed. Each line
+ * reads its bits from checkUserID(), so every line is met exactly when validateCreds() accepts the userID.
+ * @param value This parameter is the userID typed so far (already trimmed, as the forms do before validating).
+ */
+export function userIDRules(value: string): Required<Hint>[] {
+    const failed = checkUserID(value);
+    return [
+        {label: `${MIN_USERID_LENGTH}–${MAX_USERID_LENGTH} characters`, met: (failed & (TOO_SHORT | TOO_LONG)) === 0},
+        {label: "Letters and digits only", met: (failed & BAD_CHARS) === 0},
+    ];
+}
+
+/**
+ * This function lists the password requirements, read from checkPassword(). A password of only spaces
+ * sets REQUIRED, so it does not count as meeting the length line.
+ * @param value This parameter is the password typed so far.
+ */
+export function passwordRules(value: string): Required<Hint>[] {
+    const failed = checkPassword(value);
+    return [
+        {label: `${MIN_PASSWORD_LENGTH}–${MAX_PASSWORD_LENGTH} characters`, met: (failed & (REQUIRED | TOO_SHORT | TOO_LONG)) === 0},
+    ];
+}
+
+/**
+ * This function lists the project ID requirements, read from checkProjectID():
+ * "PROJ" then digits, at least 8 characters in all (so PROJ and at least 4 digits).
+ * @param value This parameter is the project ID typed so far (already trimmed).
+ */
+export function projectIDRules(value: string): Required<Hint>[] {
+    const failed = checkProjectID(value);
+    return [
+        {label: "Starts with PROJ (any letter case)", met: (failed & NO_PREFIX) === 0},
+        {label: "Followed by digits only", met: (failed & BAD_CHARS) === 0},
+        {label: `At least ${MIN_PROJECT_ID_LENGTH} characters (PROJ and 4 digits)`, met: (failed & TOO_SHORT) === 0},
+    ];
 }
