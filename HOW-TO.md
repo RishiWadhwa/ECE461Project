@@ -79,11 +79,13 @@ Then open [http://localhost:5173](http://localhost:5173).
 
 ### Start both at once
 
-Once `flask.sh` has created `.venv` and you have run `npm ci` in `haas-app`, activate the virtualenv (`source .venv/bin/activate`) and run this from the project folder:
+Once `flask.sh` has created `.venv` and you have run `npm ci` in `haas-app`, run this from the project folder:
 
 ```sh
-python scripts/dev.py
+.venv/bin/python scripts/dev.py
 ```
+
+Calling the virtualenv's Python directly works in every shell, so you don't need to activate it first. (On Windows, use `.venv/Scripts/python.exe` instead.) If you'd rather activate it, use `source .venv/bin/activate` in bash or zsh, or `source .venv/bin/activate.csh` in tcsh (the lab machines' default shell), then run `python scripts/dev.py`.
 
 It starts the API on port 5001 and the frontend on port 5173, and Ctrl+C stops both.
 
