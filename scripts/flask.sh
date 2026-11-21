@@ -76,7 +76,8 @@ if [ ! -f .env ]; then
 fi
 
 echo "API:  http://127.0.0.1:5001"
-echo "Site: https://hwaas.netlify.app"
+echo "Site: in another terminal, run 'npm run dev:prod' in haas-app, then open http://localhost:5173"
+echo "      (the hosted site at hwaas.netlify.app uses the Render API, not this local one)"
 echo "Leave this window open. Ctrl+C stops the server."
 
 exec "$VENV_PY" -m backend.app
