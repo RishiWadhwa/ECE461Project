@@ -17,7 +17,7 @@ The API is hosted on Render's free tier at `https://hwaas-31b6.onrender.com`. It
 
 Render's free tier puts the server to sleep after about 15 minutes with no traffic. The next visit wakes it, which takes 30 to 60 seconds. While it wakes, the page shows a red banner, "Cannot reach the server. Retrying every 5s", and recovers on its own once the server answers. You do not need to refresh.
 
-A scheduled GitHub Actions job pings `/health` every 10 minutes to keep the server awake, but GitHub sometimes delays scheduled runs, so a slow first load can still happen. Before a demo or grading session, open [https://hwaas-31b6.onrender.com/health](https://hwaas-31b6.onrender.com/health) a minute ahead of time.
+A [cron-job.org](https://cron-job.org) job requests `/health` every 10 minutes to keep the server awake, so this should be rare. If the site is slow anyway, the server was asleep; it will catch up within a minute. Before a demo or grading session, open [https://hwaas-31b6.onrender.com/health](https://hwaas-31b6.onrender.com/health) a minute ahead of time.
 
 ## Use the site
 
